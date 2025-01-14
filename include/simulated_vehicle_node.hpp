@@ -21,6 +21,7 @@
 #include <map>
 #include <random>
 #include <string>
+#include <unordered_map>
 #include <vector>
 
 #include "adore_dynamics_conversions.hpp"
@@ -52,7 +53,6 @@ public:
 
   SimulatedVehicleNode();
 
-
 private:
 
   void load_parameters();
@@ -64,9 +64,9 @@ private:
   void publish_vehicle_states();
   void publish_ego_transform();
   void add_noise();
-
   void publish_traffic_participants();
 
+  void update_dynamic_subscriptions();
 
   /******************************* PUBLISHERS ************************************************************/
   rclcpp::Publisher<adore_ros2_msgs::msg::VehicleStateDynamic>::SharedPtr   publisher_vehicle_state_dynamic;
@@ -75,15 +75,13 @@ private:
   rclcpp::Publisher<adore_ros2_msgs::msg::TrafficParticipantSet>::SharedPtr publisher_traffic_participant_set;
   rclcpp::Publisher<adore_ros2_msgs::msg::TrafficParticipant>::SharedPtr    publisher_traffic_participant;
 
-
   /******************************* SUBSCRIBERS ************************************************************/
   rclcpp::Subscription<adore_ros2_msgs::msg::VehicleCommand>::SharedPtr subscriber_vehicle_command;
   rclcpp::Subscription<geometry_msgs::msg::Twist>::SharedPtr            subscriber_teleop_controller;
   rclcpp::Subscription<std_msgs::msg::Bool>::SharedPtr                  subscriber_automation_toggle;
 
   using StateSubscriber = rclcpp::Subscription<adore_ros2_msgs::msg::TrafficParticipant>::SharedPtr;
-  // std::vector<StateSubscriber> other_vehicle_odometry_subscribers;
-  std::vector<StateSubscriber> other_vehicle_traffic_participant_subscribers;
+  std::unordered_map<std::string, StateSubscriber> other_vehicle_traffic_participant_subscribers;
 
   void vehicle_command_callback( const adore_ros2_msgs::msg::VehicleCommand& msg );
   void teleop_controller_callback( const geometry_msgs::msg::Twist& msg );
@@ -92,9 +90,9 @@ private:
                                                    const std::string&                              vehicle_namespace );
 
   rclcpp::TimerBase::SharedPtr main_timer;
+  rclcpp::TimerBase::SharedPtr dynamic_subscription_timer;
 
   /******************************* OTHER MEMBERS ************************************************************/
-
   dynamics::PhysicalVehicleParameters model;
 
   adore::dynamics::VehicleStateDynamic                          current_vehicle_state;
@@ -102,7 +100,6 @@ private:
   adore::dynamics::VehicleStateDynamic                          vehicle_state_last_time_step;
   adore::dynamics::VehicleCommand                               latest_vehicle_command;
   std::unordered_map<std::string, dynamics::TrafficParticipant> other_vehicles;
-  std::vector<std::string>                                      other_vehicle_namespaces;
 
   rclcpp::Time current_time;
   rclcpp::Time last_update_time;
@@ -125,7 +122,6 @@ private:
   double yaw_stddev;
   double accel_stddev;
 
-  // Create normal distributions for each variable
   std::normal_distribution<double> pos_noise;
   std::normal_distribution<double> vel_noise;
   std::normal_distribution<double> yaw_noise;

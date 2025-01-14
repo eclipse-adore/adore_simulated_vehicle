@@ -37,6 +37,9 @@ SimulatedVehicleNode::SimulatedVehicleNode() :
   vel_noise   = std::normal_distribution( 0.0, vel_stddev );
   yaw_noise   = std::normal_distribution( 0.0, yaw_stddev );
   accel_noise = std::normal_distribution( 0.0, accel_stddev );
+
+  // Timer for dynamically discovering and subscribing to new vehicle topics
+  dynamic_subscription_timer = create_wall_timer( 1s, std::bind( &SimulatedVehicleNode::update_dynamic_subscriptions, this ) );
 }
 
 void
@@ -83,9 +86,6 @@ SimulatedVehicleNode::load_parameters()
   current_traffic_participant.bounding_box.length = ego_vehicle_shape[0];
   current_traffic_participant.bounding_box.width  = ego_vehicle_shape[1];
   current_traffic_participant.bounding_box.height = ego_vehicle_shape[2];
-
-  declare_parameter<std::vector<std::string>>( "other_vehicle_namespaces", std::vector<std::string>{} );
-  get_parameter( "other_vehicle_namespaces", other_vehicle_namespaces );
 }
 
 void
@@ -96,7 +96,7 @@ SimulatedVehicleNode::create_publishers()
 
   publisher_traffic_participant_set = create_publisher<adore_ros2_msgs::msg::TrafficParticipantSet>( "traffic_participants", 10 );
 
-  publisher_traffic_participant = create_publisher<adore_ros2_msgs::msg::TrafficParticipant>( "vehicle_state/traffic_participant", 10 );
+  publisher_traffic_participant = create_publisher<adore_ros2_msgs::msg::TrafficParticipant>( "simulated_traffic_participant", 10 );
 
   tf_transform_broadcaster = std::make_unique<tf2_ros::TransformBroadcaster>( *this );
 }
@@ -106,7 +106,6 @@ SimulatedVehicleNode::create_subscribers()
 {
   main_timer = create_wall_timer( time_step_s * 1000ms, std::bind( &SimulatedVehicleNode::timer_callback, this ) );
 
-  // Existing subscribers
   subscriber_vehicle_command = create_subscription<adore_ros2_msgs::msg::VehicleCommand>(
     "next_vehicle_command", 10, std::bind( &SimulatedVehicleNode::vehicle_command_callback, this, std::placeholders::_1 ) );
 
@@ -116,22 +115,33 @@ SimulatedVehicleNode::create_subscribers()
   subscriber_automation_toggle = create_subscription<std_msgs::msg::Bool>( "automation_toggle", 10,
                                                                            std::bind( &SimulatedVehicleNode::automation_toggle_callback,
                                                                                       this, std::placeholders::_1 ) );
+}
 
-  if( !controllable )
-    return;
-
-  for( const auto& ns : other_vehicle_namespaces )
+void
+SimulatedVehicleNode::update_dynamic_subscriptions()
+{
+  auto topic_names_and_types = get_topic_names_and_types();
+  for( const auto& topic : topic_names_and_types )
   {
-    if( ns == get_namespace() )
-      continue;
+    const std::string& topic_name = topic.first;
+    if( topic_name.find( "/simulated_traffic_participant" ) != std::string::npos )
+    {
+      std::string vehicle_namespace = topic_name.substr( 1, topic_name.find( "/simulated_traffic_participant" ) - 1 );
+      // Skip subscribing to own namespace
+      if( vehicle_namespace == std::string( get_namespace() ).substr( 1 ) )
+      {
+        continue;
+      }
 
-    std::string odom_topic = "/" + ns + "/vehicle_state/traffic_participant";
+      auto subscription = create_subscription<adore_ros2_msgs::msg::TrafficParticipant>(
+        topic_name, 10, [this, vehicle_namespace]( const adore_ros2_msgs::msg::TrafficParticipant& msg ) {
+          other_vehicle_traffic_participant_callback( msg, vehicle_namespace );
+        } );
 
-    auto traffic_participant_subscription = create_subscription<adore_ros2_msgs::msg::TrafficParticipant>(
-      odom_topic, 1,
-      [this, ns]( const adore_ros2_msgs::msg::TrafficParticipant& msg ) { other_vehicle_traffic_participant_callback( msg, ns ); } );
+      other_vehicle_traffic_participant_subscribers[vehicle_namespace] = subscription;
 
-    other_vehicle_traffic_participant_subscribers.emplace_back( traffic_participant_subscription );
+      RCLCPP_INFO( get_logger(), "Subscribed to new vehicle namespace: %s", vehicle_namespace.c_str() );
+    }
   }
 }
 
@@ -156,11 +166,9 @@ SimulatedVehicleNode::timer_callback()
 void
 SimulatedVehicleNode::simulate_ego_vehicle()
 {
-
   const auto& next_steer = latest_vehicle_command.steering_angle;
   const auto& next_acc   = latest_vehicle_command.acceleration;
 
-  // Convert the current vehicle state and control inputs into an Eigen matrix
   current_vehicle_state = dynamics::rk4_step( current_vehicle_state, latest_vehicle_command, time_step_s, integration_step_size, model );
 
   current_traffic_participant.state = current_vehicle_state;
@@ -172,7 +180,7 @@ SimulatedVehicleNode::teleop_controller_callback( const geometry_msgs::msg::Twis
   if( !manual_control_override )
     return;
 
-  constexpr double MAX_STEER = 0.7; // Use vehicle command limits
+  constexpr double MAX_STEER = 0.7;
   constexpr double MAX_ACC   = 1.0;
 
   double& steer  = latest_vehicle_command.steering_angle;
@@ -210,33 +218,12 @@ SimulatedVehicleNode::publish_vehicle_states()
   adore_ros2_msgs::msg::VehicleStateDynamic dynamic_msg = dynamics::conversions::to_ros_msg( current_vehicle_state );
   publisher_vehicle_state_dynamic->publish( dynamic_msg );
 
-  // for consistency with bob interface
   adore_ros2_msgs::msg::StateMonitor state_monitor_msg;
   state_monitor_msg.localization_error = pos_stddev;
   publisher_state_monitor->publish( state_monitor_msg );
 
-  // Ego vehicle publishing itself as traffic participant
   adore_ros2_msgs::msg::TrafficParticipant ego_as_traffic_participant = dynamics::conversions::to_ros_msg( current_traffic_participant );
   publisher_traffic_participant->publish( ego_as_traffic_participant );
-}
-
-void
-SimulatedVehicleNode::add_noise()
-{
-  std::random_device rd;
-  std::mt19937       gen( rd() );
-
-  current_vehicle_state.x += pos_noise( gen );
-  current_vehicle_state.y += pos_noise( gen );
-
-  current_vehicle_state.vx += vel_noise( gen );
-  current_vehicle_state.vy += vel_noise( gen );
-
-  current_vehicle_state.yaw_angle += yaw_noise( gen );
-  current_vehicle_state.yaw_rate  += yaw_noise( gen );
-
-  current_vehicle_state.ax += accel_noise( gen );
-  current_vehicle_state.ay += accel_noise( gen );
 }
 
 void
@@ -249,7 +236,6 @@ SimulatedVehicleNode::other_vehicle_traffic_participant_callback( const adore_ro
 void
 SimulatedVehicleNode::publish_traffic_participants()
 {
-  // Clear previous data
   dynamics::TrafficParticipantSet traffic_participants;
 
   for( const auto& [vehicle_namespace, other_vehicle] : other_vehicles )
