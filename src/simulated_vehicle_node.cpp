@@ -123,8 +123,10 @@ SimulatedVehicleNode::update_dynamic_subscriptions()
   auto topic_names_and_types = get_topic_names_and_types();
   for( const auto& topic : topic_names_and_types )
   {
-    const std::string& topic_name = topic.first;
-    if( topic_name.find( "/simulated_traffic_participant" ) != std::string::npos )
+    const std::string&              topic_name = topic.first;
+    const std::vector<std::string>& types      = topic.second;
+    if( topic_name.find( "/simulated_traffic_participant" ) != std::string::npos
+        && std::find( types.begin(), types.end(), "adore_ros2_msgs/msg/TrafficParticipant" ) != types.end() )
     {
       std::string vehicle_namespace = topic_name.substr( 1, topic_name.find( "/simulated_traffic_participant" ) - 1 );
       // Skip subscribing to own namespace
@@ -132,6 +134,8 @@ SimulatedVehicleNode::update_dynamic_subscriptions()
       {
         continue;
       }
+      if( other_vehicle_traffic_participant_subscribers.count( vehicle_namespace ) > 0 )
+        continue;
 
       auto subscription = create_subscription<adore_ros2_msgs::msg::TrafficParticipant>(
         topic_name, 10, [this, vehicle_namespace]( const adore_ros2_msgs::msg::TrafficParticipant& msg ) {
@@ -149,7 +153,6 @@ void
 SimulatedVehicleNode::timer_callback()
 {
   current_time = now();
-
   if( controllable )
   {
     simulate_ego_vehicle();
