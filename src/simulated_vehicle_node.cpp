@@ -120,23 +120,35 @@ SimulatedVehicleNode::create_subscribers()
 void
 SimulatedVehicleNode::update_dynamic_subscriptions()
 {
-  auto topic_names_and_types = get_topic_names_and_types();
+  auto       topic_names_and_types = get_topic_names_and_types();
+  std::regex valid_topic_regex( R"(^/([^/]+)/simulated_traffic_participant$)" );
+  std::regex valid_type_regex( R"(^adore_ros2_msgs/msg/TrafficParticipant$)" );
+
   for( const auto& topic : topic_names_and_types )
   {
     const std::string&              topic_name = topic.first;
     const std::vector<std::string>& types      = topic.second;
-    if( topic_name.find( "/simulated_traffic_participant" ) != std::string::npos
-        && std::find( types.begin(), types.end(), "adore_ros2_msgs/msg/TrafficParticipant" ) != types.end() )
+
+    std::smatch match;
+    if( std::regex_match( topic_name, match, valid_topic_regex )
+        && std::any_of( types.begin(), types.end(),
+                        [&]( const std::string& type ) { return std::regex_match( type, valid_type_regex ); } ) )
     {
-      std::string vehicle_namespace = topic_name.substr( 1, topic_name.find( "/simulated_traffic_participant" ) - 1 );
+      std::string vehicle_namespace = match[1].str();
+
       // Skip subscribing to own namespace
       if( vehicle_namespace == std::string( get_namespace() ).substr( 1 ) )
       {
         continue;
       }
-      if( other_vehicle_traffic_participant_subscribers.count( vehicle_namespace ) > 0 )
-        continue;
 
+      // Check if already subscribed
+      if( other_vehicle_traffic_participant_subscribers.count( vehicle_namespace ) > 0 )
+      {
+        continue;
+      }
+
+      // Create a new subscription
       auto subscription = create_subscription<adore_ros2_msgs::msg::TrafficParticipant>(
         topic_name, 10, [this, vehicle_namespace]( const adore_ros2_msgs::msg::TrafficParticipant& msg ) {
           other_vehicle_traffic_participant_callback( msg, vehicle_namespace );
