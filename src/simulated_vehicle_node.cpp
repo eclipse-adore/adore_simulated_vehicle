@@ -259,7 +259,7 @@ SimulatedVehicleNode::publish_traffic_participants()
     if( distance > sensor_range )
       continue;
 
-    traffic_participants[other_vehicle.id] = other_vehicle;
+    traffic_participants.participants[other_vehicle.id] = other_vehicle;
   }
   publisher_traffic_participant_set->publish( dynamics::conversions::to_ros_msg( traffic_participants ) );
 }
