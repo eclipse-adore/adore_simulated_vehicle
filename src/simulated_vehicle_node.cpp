@@ -32,7 +32,6 @@ SimulatedVehicleNode::SimulatedVehicleNode() :
   create_publishers();
   create_subscribers();
 
-  model       = dynamics::PhysicalVehicleParameters( "bicycle" );
   pos_noise   = std::normal_distribution( 0.0, pos_stddev );
   vel_noise   = std::normal_distribution( 0.0, vel_stddev );
   yaw_noise   = std::normal_distribution( 0.0, yaw_stddev );
@@ -45,6 +44,11 @@ SimulatedVehicleNode::SimulatedVehicleNode() :
 void
 SimulatedVehicleNode::load_parameters()
 {
+  std::string vehicle_model_file;
+  declare_parameter( "vehicle_model_file", "" );
+  get_parameter( "vehicle_model_file", vehicle_model_file );
+  model = dynamics::PhysicalVehicleModel( vehicle_model_file, false );
+
   declare_parameter( "controllable", true );
   get_parameter( "controllable", controllable );
 
@@ -86,6 +90,9 @@ SimulatedVehicleNode::load_parameters()
   current_traffic_participant.bounding_box.length = ego_vehicle_shape[0];
   current_traffic_participant.bounding_box.width  = ego_vehicle_shape[1];
   current_traffic_participant.bounding_box.height = ego_vehicle_shape[2];
+
+  latest_vehicle_command.steering_angle = 0;
+  latest_vehicle_command.acceleration   = 0;
 }
 
 void
@@ -181,11 +188,8 @@ SimulatedVehicleNode::timer_callback()
 void
 SimulatedVehicleNode::simulate_ego_vehicle()
 {
-  const auto& next_steer = latest_vehicle_command.steering_angle;
-  const auto& next_acc   = latest_vehicle_command.acceleration;
-
-  current_vehicle_state = dynamics::rk4_step( current_vehicle_state, latest_vehicle_command, time_step_s, integration_step_size, model );
-
+  auto t                = current_vehicle_state.time;
+  current_vehicle_state = dynamics::integrate_rk4( current_vehicle_state, latest_vehicle_command, time_step_s, model.motion_model );
   current_traffic_participant.state = current_vehicle_state;
 }
 
