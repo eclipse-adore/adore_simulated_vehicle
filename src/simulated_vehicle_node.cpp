@@ -87,9 +87,7 @@ SimulatedVehicleNode::load_parameters()
   current_vehicle_state.ax             = 0;
   current_vehicle_state.time           = current_time.seconds();
 
-  current_traffic_participant.bounding_box.length = ego_vehicle_shape[0];
-  current_traffic_participant.bounding_box.width  = ego_vehicle_shape[1];
-  current_traffic_participant.bounding_box.height = ego_vehicle_shape[2];
+  current_traffic_participant.physical_parameters = model.params;
 
   latest_vehicle_command.steering_angle = 0;
   latest_vehicle_command.acceleration   = 0;
@@ -227,7 +225,7 @@ SimulatedVehicleNode::vehicle_command_callback( const adore_ros2_msgs::msg::Vehi
 void
 SimulatedVehicleNode::publish_ego_transform()
 {
-  auto vehicle_frame = dynamics::conversions::vehicle_state_to_transform( current_vehicle_state, last_update_time );
+  auto vehicle_frame = dynamics::conversions::vehicle_state_to_transform( current_vehicle_state, last_update_time, get_namespace() );
   tf_transform_broadcaster->sendTransform( vehicle_frame );
 }
 
