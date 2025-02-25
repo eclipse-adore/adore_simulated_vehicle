@@ -32,7 +32,6 @@ SimulatedVehicleNode::SimulatedVehicleNode() :
   create_publishers();
   create_subscribers();
 
-  model       = dynamics::PhysicalVehicleParameters( "bicycle" );
   pos_noise   = std::normal_distribution( 0.0, pos_stddev );
   vel_noise   = std::normal_distribution( 0.0, vel_stddev );
   yaw_noise   = std::normal_distribution( 0.0, yaw_stddev );
@@ -45,6 +44,11 @@ SimulatedVehicleNode::SimulatedVehicleNode() :
 void
 SimulatedVehicleNode::load_parameters()
 {
+  std::string vehicle_model_file;
+  declare_parameter( "vehicle_model_file", "" );
+  get_parameter( "vehicle_model_file", vehicle_model_file );
+  model = dynamics::PhysicalVehicleModel( vehicle_model_file, false );
+
   declare_parameter( "controllable", true );
   get_parameter( "controllable", controllable );
 
@@ -83,9 +87,10 @@ SimulatedVehicleNode::load_parameters()
   current_vehicle_state.ax             = 0;
   current_vehicle_state.time           = current_time.seconds();
 
-  current_traffic_participant.bounding_box.length = ego_vehicle_shape[0];
-  current_traffic_participant.bounding_box.width  = ego_vehicle_shape[1];
-  current_traffic_participant.bounding_box.height = ego_vehicle_shape[2];
+  current_traffic_participant.physical_parameters = model.params;
+
+  latest_vehicle_command.steering_angle = 0;
+  latest_vehicle_command.acceleration   = 0;
 }
 
 void
@@ -120,19 +125,35 @@ SimulatedVehicleNode::create_subscribers()
 void
 SimulatedVehicleNode::update_dynamic_subscriptions()
 {
-  auto topic_names_and_types = get_topic_names_and_types();
+  auto       topic_names_and_types = get_topic_names_and_types();
+  std::regex valid_topic_regex( R"(^/([^/]+)/simulated_traffic_participant$)" );
+  std::regex valid_type_regex( R"(^adore_ros2_msgs/msg/TrafficParticipant$)" );
+
   for( const auto& topic : topic_names_and_types )
   {
-    const std::string& topic_name = topic.first;
-    if( topic_name.find( "/simulated_traffic_participant" ) != std::string::npos )
+    const std::string&              topic_name = topic.first;
+    const std::vector<std::string>& types      = topic.second;
+
+    std::smatch match;
+    if( std::regex_match( topic_name, match, valid_topic_regex )
+        && std::any_of( types.begin(), types.end(),
+                        [&]( const std::string& type ) { return std::regex_match( type, valid_type_regex ); } ) )
     {
-      std::string vehicle_namespace = topic_name.substr( 1, topic_name.find( "/simulated_traffic_participant" ) - 1 );
+      std::string vehicle_namespace = match[1].str();
+
       // Skip subscribing to own namespace
       if( vehicle_namespace == std::string( get_namespace() ).substr( 1 ) )
       {
         continue;
       }
 
+      // Check if already subscribed
+      if( other_vehicle_traffic_participant_subscribers.count( vehicle_namespace ) > 0 )
+      {
+        continue;
+      }
+
+      // Create a new subscription
       auto subscription = create_subscription<adore_ros2_msgs::msg::TrafficParticipant>(
         topic_name, 10, [this, vehicle_namespace]( const adore_ros2_msgs::msg::TrafficParticipant& msg ) {
           other_vehicle_traffic_participant_callback( msg, vehicle_namespace );
@@ -149,7 +170,6 @@ void
 SimulatedVehicleNode::timer_callback()
 {
   current_time = now();
-
   if( controllable )
   {
     simulate_ego_vehicle();
@@ -166,11 +186,8 @@ SimulatedVehicleNode::timer_callback()
 void
 SimulatedVehicleNode::simulate_ego_vehicle()
 {
-  const auto& next_steer = latest_vehicle_command.steering_angle;
-  const auto& next_acc   = latest_vehicle_command.acceleration;
-
-  current_vehicle_state = dynamics::rk4_step( current_vehicle_state, latest_vehicle_command, time_step_s, integration_step_size, model );
-
+  auto t                = current_vehicle_state.time;
+  current_vehicle_state = dynamics::integrate_rk4( current_vehicle_state, latest_vehicle_command, time_step_s, model.motion_model );
   current_traffic_participant.state = current_vehicle_state;
 }
 
@@ -208,7 +225,7 @@ SimulatedVehicleNode::vehicle_command_callback( const adore_ros2_msgs::msg::Vehi
 void
 SimulatedVehicleNode::publish_ego_transform()
 {
-  auto vehicle_frame = dynamics::conversions::vehicle_state_to_transform( current_vehicle_state, last_update_time );
+  auto vehicle_frame = dynamics::conversions::vehicle_state_to_transform( current_vehicle_state, last_update_time, get_namespace() );
   tf_transform_broadcaster->sendTransform( vehicle_frame );
 }
 
@@ -244,7 +261,7 @@ SimulatedVehicleNode::publish_traffic_participants()
     if( distance > sensor_range )
       continue;
 
-    traffic_participants[other_vehicle.id] = other_vehicle;
+    traffic_participants.participants[other_vehicle.id] = other_vehicle;
   }
   publisher_traffic_participant_set->publish( dynamics::conversions::to_ros_msg( traffic_participants ) );
 }

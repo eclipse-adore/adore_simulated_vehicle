@@ -30,8 +30,8 @@
 #include "adore_ros2_msgs/msg/traffic_participant_set.hpp"
 #include "adore_ros2_msgs/msg/vehicle_command.hpp"
 
-#include "dynamics/OdeRK4.hpp"
 #include "dynamics/integration.hpp"
+#include "dynamics/physical_vehicle_model.hpp"
 #include "dynamics/vehicle_state.hpp"
 #include "geometry_msgs/msg/transform_stamped.hpp"
 #include "geometry_msgs/msg/twist.hpp"
@@ -93,7 +93,7 @@ private:
   rclcpp::TimerBase::SharedPtr dynamic_subscription_timer;
 
   /******************************* OTHER MEMBERS ************************************************************/
-  dynamics::PhysicalVehicleParameters model;
+  dynamics::PhysicalVehicleModel model;
 
   adore::dynamics::VehicleStateDynamic                          current_vehicle_state;
   adore::dynamics::TrafficParticipant                           current_traffic_participant;
