@@ -186,7 +186,6 @@ SimulatedVehicleNode::timer_callback()
 void
 SimulatedVehicleNode::simulate_ego_vehicle()
 {
-  auto t                = current_vehicle_state.time;
   current_vehicle_state = dynamics::integrate_rk4( current_vehicle_state, latest_vehicle_command, time_step_s, model.motion_model );
   current_traffic_participant.state = current_vehicle_state;
 }
