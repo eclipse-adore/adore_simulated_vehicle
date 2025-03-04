@@ -186,7 +186,16 @@ SimulatedVehicleNode::timer_callback()
 void
 SimulatedVehicleNode::simulate_ego_vehicle()
 {
-  current_vehicle_state = dynamics::integrate_rk4( current_vehicle_state, latest_vehicle_command, time_step_s, model.motion_model );
+  auto prev_state          = current_vehicle_state;
+  current_vehicle_state    = dynamics::integrate_rk4( current_vehicle_state, latest_vehicle_command, time_step_s, model.motion_model );
+  current_vehicle_state.ax = latest_vehicle_command.acceleration;
+  current_vehicle_state.steering_angle = latest_vehicle_command.steering_angle;
+
+  current_vehicle_state.steering_rate = math::normalize_angle( current_vehicle_state.steering_angle - prev_state.steering_angle )
+                                      / time_step_s;
+
+  current_vehicle_state.yaw_rate = math::normalize_angle( current_vehicle_state.yaw_angle - prev_state.yaw_angle ) / time_step_s;
+
   current_traffic_participant.state = current_vehicle_state;
 }
 
