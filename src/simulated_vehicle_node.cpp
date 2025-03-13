@@ -52,6 +52,9 @@ SimulatedVehicleNode::load_parameters()
   declare_parameter( "controllable", true );
   get_parameter( "controllable", controllable );
 
+  declare_parameter( "restart_on_goal", true );
+  get_parameter( "restart_on_goal", restart_on_goal );
+
   declare_parameter( "set_start_position_x", 0.0 );
   declare_parameter( "set_start_position_y", 0.0 );
   declare_parameter( "set_start_psi", 0.0 );
@@ -75,6 +78,17 @@ SimulatedVehicleNode::load_parameters()
   declare_parameter( "vehicle_id", 0 );
   get_parameter( "vehicle_id", current_traffic_participant.id );
 
+  go_to_start();
+
+  current_traffic_participant.physical_parameters = model.params;
+
+  latest_vehicle_command.steering_angle = 0;
+  latest_vehicle_command.acceleration   = 0;
+}
+
+void
+SimulatedVehicleNode::go_to_start()
+{
   current_vehicle_state.x              = ego_vehicle_start_position_x;
   current_vehicle_state.y              = ego_vehicle_start_position_y;
   current_vehicle_state.z              = 0;
@@ -86,11 +100,6 @@ SimulatedVehicleNode::load_parameters()
   current_vehicle_state.steering_rate  = 0;
   current_vehicle_state.ax             = 0;
   current_vehicle_state.time           = current_time.seconds();
-
-  current_traffic_participant.physical_parameters = model.params;
-
-  latest_vehicle_command.steering_angle = 0;
-  latest_vehicle_command.acceleration   = 0;
 }
 
 void
@@ -120,6 +129,10 @@ SimulatedVehicleNode::create_subscribers()
   subscriber_automation_toggle = create_subscription<std_msgs::msg::Bool>( "automation_toggle", 10,
                                                                            std::bind( &SimulatedVehicleNode::automation_toggle_callback,
                                                                                       this, std::placeholders::_1 ) );
+
+  subscriber_goal_reached = create_subscription<std_msgs::msg::Bool>( "goal_reached", 10,
+                                                                      std::bind( &SimulatedVehicleNode::goal_reached_callback, this,
+                                                                                 std::placeholders::_1 ) );
 }
 
 void
@@ -221,6 +234,13 @@ void
 SimulatedVehicleNode::automation_toggle_callback( const std_msgs::msg::Bool& msg )
 {
   manual_control_override = msg.data;
+}
+
+void
+SimulatedVehicleNode::goal_reached_callback( const std_msgs::msg::Bool& msg )
+{
+  if( restart_on_goal )
+    go_to_start();
 }
 
 void

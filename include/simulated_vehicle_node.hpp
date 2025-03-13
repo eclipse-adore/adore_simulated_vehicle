@@ -79,6 +79,8 @@ private:
   rclcpp::Subscription<adore_ros2_msgs::msg::VehicleCommand>::SharedPtr subscriber_vehicle_command;
   rclcpp::Subscription<geometry_msgs::msg::Twist>::SharedPtr            subscriber_teleop_controller;
   rclcpp::Subscription<std_msgs::msg::Bool>::SharedPtr                  subscriber_automation_toggle;
+  rclcpp::Subscription<std_msgs::msg::Bool>::SharedPtr                  subscriber_goal_reached;
+
 
   using StateSubscriber = rclcpp::Subscription<adore_ros2_msgs::msg::TrafficParticipant>::SharedPtr;
   std::unordered_map<std::string, StateSubscriber> other_vehicle_traffic_participant_subscribers;
@@ -86,8 +88,13 @@ private:
   void vehicle_command_callback( const adore_ros2_msgs::msg::VehicleCommand& msg );
   void teleop_controller_callback( const geometry_msgs::msg::Twist& msg );
   void automation_toggle_callback( const std_msgs::msg::Bool& msg );
+  void goal_reached_callback( const std_msgs::msg::Bool& msg );
+
   void other_vehicle_traffic_participant_callback( const adore_ros2_msgs::msg::TrafficParticipant& msg,
                                                    const std::string&                              vehicle_namespace );
+
+
+  void go_to_start();
 
   rclcpp::TimerBase::SharedPtr main_timer;
   rclcpp::TimerBase::SharedPtr dynamic_subscription_timer;
@@ -115,6 +122,7 @@ private:
   bool   manual_control_override = false;
   bool   controllable            = false;
   double sensor_range            = 100;
+  bool   restart_on_goal         = false;
 
   // Create normal distributions for each variable
   double pos_stddev;
