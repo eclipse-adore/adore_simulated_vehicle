@@ -98,11 +98,6 @@ SimulatedVehicleNode::create_publishers()
 {
   publisher_vehicle_state_dynamic = create_publisher<adore_ros2_msgs::msg::VehicleStateDynamic>( "vehicle_state/dynamic", 10 );
   publisher_state_monitor         = create_publisher<adore_ros2_msgs::msg::StateMonitor>( "vehicle_state/monitor", 10 );
-
-  publisher_traffic_participant_set = create_publisher<adore_ros2_msgs::msg::TrafficParticipantSet>( "traffic_participants", 10 );
-
-  publisher_traffic_participant = create_publisher<adore_ros2_msgs::msg::TrafficParticipant>( "simulated_traffic_participant", 10 );
-
 }
 
 void
@@ -172,8 +167,6 @@ SimulatedVehicleNode::timer_callback()
   if( controllable )
   {
     simulate_ego_vehicle();
-    if( current_traffic_participant.id == 0 )
-      publish_traffic_participants();
   }
 
   last_update_time = current_time;
@@ -236,9 +229,6 @@ SimulatedVehicleNode::publish_vehicle_states()
   adore_ros2_msgs::msg::StateMonitor state_monitor_msg;
   state_monitor_msg.localization_error = pos_stddev;
   publisher_state_monitor->publish( state_monitor_msg );
-
-  adore_ros2_msgs::msg::TrafficParticipant ego_as_traffic_participant = dynamics::conversions::to_ros_msg( current_traffic_participant );
-  publisher_traffic_participant->publish( ego_as_traffic_participant );
 }
 
 void
@@ -248,21 +238,6 @@ SimulatedVehicleNode::other_vehicle_traffic_participant_callback( const adore_ro
   other_vehicles[vehicle_namespace] = dynamics::conversions::to_cpp_type( msg );
 }
 
-void
-SimulatedVehicleNode::publish_traffic_participants()
-{
-  dynamics::TrafficParticipantSet traffic_participants;
-
-  for( const auto& [vehicle_namespace, other_vehicle] : other_vehicles )
-  {
-    double distance = adore::math::distance_2d( other_vehicle.state, current_vehicle_state );
-    if( distance > sensor_range )
-      continue;
-
-    traffic_participants.participants[other_vehicle.id] = other_vehicle;
-  }
-  publisher_traffic_participant_set->publish( dynamics::conversions::to_ros_msg( traffic_participants ) );
-}
 } // namespace simulated_vehicle
 } // namespace adore
 

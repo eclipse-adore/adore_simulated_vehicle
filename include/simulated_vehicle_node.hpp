@@ -63,15 +63,12 @@ private:
   void simulate_ego_vehicle();
   void publish_vehicle_states();
   void add_noise();
-  void publish_traffic_participants();
 
   void update_dynamic_subscriptions();
 
   /******************************* PUBLISHERS ************************************************************/
   rclcpp::Publisher<adore_ros2_msgs::msg::VehicleStateDynamic>::SharedPtr   publisher_vehicle_state_dynamic;
   rclcpp::Publisher<adore_ros2_msgs::msg::StateMonitor>::SharedPtr          publisher_state_monitor;
-  rclcpp::Publisher<adore_ros2_msgs::msg::TrafficParticipantSet>::SharedPtr publisher_traffic_participant_set;
-  rclcpp::Publisher<adore_ros2_msgs::msg::TrafficParticipant>::SharedPtr    publisher_traffic_participant;
 
   /******************************* SUBSCRIBERS ************************************************************/
   rclcpp::Subscription<adore_ros2_msgs::msg::VehicleCommand>::SharedPtr subscriber_vehicle_command;
