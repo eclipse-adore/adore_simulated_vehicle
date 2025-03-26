@@ -103,7 +103,6 @@ SimulatedVehicleNode::create_publishers()
 
   publisher_traffic_participant = create_publisher<adore_ros2_msgs::msg::TrafficParticipant>( "simulated_traffic_participant", 10 );
 
-  tf_transform_broadcaster = std::make_unique<tf2_ros::TransformBroadcaster>( *this );
 }
 
 void
@@ -179,8 +178,6 @@ SimulatedVehicleNode::timer_callback()
 
   last_update_time = current_time;
   publish_vehicle_states();
-  if( current_traffic_participant.id == 0 )
-    publish_ego_transform();
 }
 
 void
@@ -228,13 +225,6 @@ SimulatedVehicleNode::vehicle_command_callback( const adore_ros2_msgs::msg::Vehi
 {
   if( !manual_control_override )
     latest_vehicle_command = adore::dynamics::conversions::to_cpp_type( msg );
-}
-
-void
-SimulatedVehicleNode::publish_ego_transform()
-{
-  auto vehicle_frame = dynamics::conversions::vehicle_state_to_transform( current_vehicle_state, last_update_time, get_namespace() );
-  tf_transform_broadcaster->sendTransform( vehicle_frame );
 }
 
 void

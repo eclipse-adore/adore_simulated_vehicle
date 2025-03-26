@@ -62,7 +62,6 @@ private:
 
   void simulate_ego_vehicle();
   void publish_vehicle_states();
-  void publish_ego_transform();
   void add_noise();
   void publish_traffic_participants();
 
@@ -71,7 +70,6 @@ private:
   /******************************* PUBLISHERS ************************************************************/
   rclcpp::Publisher<adore_ros2_msgs::msg::VehicleStateDynamic>::SharedPtr   publisher_vehicle_state_dynamic;
   rclcpp::Publisher<adore_ros2_msgs::msg::StateMonitor>::SharedPtr          publisher_state_monitor;
-  std::unique_ptr<tf2_ros::TransformBroadcaster>                            tf_transform_broadcaster;
   rclcpp::Publisher<adore_ros2_msgs::msg::TrafficParticipantSet>::SharedPtr publisher_traffic_participant_set;
   rclcpp::Publisher<adore_ros2_msgs::msg::TrafficParticipant>::SharedPtr    publisher_traffic_participant;
 
