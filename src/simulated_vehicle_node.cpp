@@ -36,9 +36,6 @@ SimulatedVehicleNode::SimulatedVehicleNode() :
   vel_noise   = std::normal_distribution( 0.0, vel_stddev );
   yaw_noise   = std::normal_distribution( 0.0, yaw_stddev );
   accel_noise = std::normal_distribution( 0.0, accel_stddev );
-
-  // Timer for dynamically discovering and subscribing to new vehicle topics
-  dynamic_subscription_timer = create_wall_timer( 1s, std::bind( &SimulatedVehicleNode::update_dynamic_subscriptions, this ) );
 }
 
 void
@@ -117,50 +114,6 @@ SimulatedVehicleNode::create_subscribers()
 }
 
 void
-SimulatedVehicleNode::update_dynamic_subscriptions()
-{
-  auto       topic_names_and_types = get_topic_names_and_types();
-  std::regex valid_topic_regex( R"(^/([^/]+)/simulated_traffic_participant$)" );
-  std::regex valid_type_regex( R"(^adore_ros2_msgs/msg/TrafficParticipant$)" );
-
-  for( const auto& topic : topic_names_and_types )
-  {
-    const std::string&              topic_name = topic.first;
-    const std::vector<std::string>& types      = topic.second;
-
-    std::smatch match;
-    if( std::regex_match( topic_name, match, valid_topic_regex )
-        && std::any_of( types.begin(), types.end(),
-                        [&]( const std::string& type ) { return std::regex_match( type, valid_type_regex ); } ) )
-    {
-      std::string vehicle_namespace = match[1].str();
-
-      // Skip subscribing to own namespace
-      if( vehicle_namespace == std::string( get_namespace() ).substr( 1 ) )
-      {
-        continue;
-      }
-
-      // Check if already subscribed
-      if( other_vehicle_traffic_participant_subscribers.count( vehicle_namespace ) > 0 )
-      {
-        continue;
-      }
-
-      // Create a new subscription
-      auto subscription = create_subscription<adore_ros2_msgs::msg::TrafficParticipant>(
-        topic_name, 10, [this, vehicle_namespace]( const adore_ros2_msgs::msg::TrafficParticipant& msg ) {
-          other_vehicle_traffic_participant_callback( msg, vehicle_namespace );
-        } );
-
-      other_vehicle_traffic_participant_subscribers[vehicle_namespace] = subscription;
-
-      RCLCPP_INFO( get_logger(), "Subscribed to new vehicle namespace: %s", vehicle_namespace.c_str() );
-    }
-  }
-}
-
-void
 SimulatedVehicleNode::timer_callback()
 {
   current_time = now();
@@ -229,13 +182,6 @@ SimulatedVehicleNode::publish_vehicle_states()
   adore_ros2_msgs::msg::StateMonitor state_monitor_msg;
   state_monitor_msg.localization_error = pos_stddev;
   publisher_state_monitor->publish( state_monitor_msg );
-}
-
-void
-SimulatedVehicleNode::other_vehicle_traffic_participant_callback( const adore_ros2_msgs::msg::TrafficParticipant& msg,
-                                                                  const std::string&                              vehicle_namespace )
-{
-  other_vehicles[vehicle_namespace] = dynamics::conversions::to_cpp_type( msg );
 }
 
 } // namespace simulated_vehicle

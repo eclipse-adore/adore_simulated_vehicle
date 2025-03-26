@@ -64,8 +64,6 @@ private:
   void publish_vehicle_states();
   void add_noise();
 
-  void update_dynamic_subscriptions();
-
   /******************************* PUBLISHERS ************************************************************/
   rclcpp::Publisher<adore_ros2_msgs::msg::VehicleStateDynamic>::SharedPtr   publisher_vehicle_state_dynamic;
   rclcpp::Publisher<adore_ros2_msgs::msg::StateMonitor>::SharedPtr          publisher_state_monitor;
@@ -75,17 +73,11 @@ private:
   rclcpp::Subscription<geometry_msgs::msg::Twist>::SharedPtr            subscriber_teleop_controller;
   rclcpp::Subscription<std_msgs::msg::Bool>::SharedPtr                  subscriber_automation_toggle;
 
-  using StateSubscriber = rclcpp::Subscription<adore_ros2_msgs::msg::TrafficParticipant>::SharedPtr;
-  std::unordered_map<std::string, StateSubscriber> other_vehicle_traffic_participant_subscribers;
-
   void vehicle_command_callback( const adore_ros2_msgs::msg::VehicleCommand& msg );
   void teleop_controller_callback( const geometry_msgs::msg::Twist& msg );
   void automation_toggle_callback( const std_msgs::msg::Bool& msg );
-  void other_vehicle_traffic_participant_callback( const adore_ros2_msgs::msg::TrafficParticipant& msg,
-                                                   const std::string&                              vehicle_namespace );
 
   rclcpp::TimerBase::SharedPtr main_timer;
-  rclcpp::TimerBase::SharedPtr dynamic_subscription_timer;
 
   /******************************* OTHER MEMBERS ************************************************************/
   dynamics::PhysicalVehicleModel model;
@@ -94,7 +86,6 @@ private:
   adore::dynamics::TrafficParticipant                           current_traffic_participant;
   adore::dynamics::VehicleStateDynamic                          vehicle_state_last_time_step;
   adore::dynamics::VehicleCommand                               latest_vehicle_command;
-  std::unordered_map<std::string, dynamics::TrafficParticipant> other_vehicles;
 
   rclcpp::Time current_time;
   rclcpp::Time last_update_time;
