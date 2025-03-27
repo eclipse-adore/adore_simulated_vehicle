@@ -15,8 +15,11 @@
  *    Marko Mizdrak
  ********************************************************************************/
 #include "simulated_vehicle_node.hpp"
+#include <adore_dynamics_conversions.hpp>
 
 #include "adore_math/distance.h"
+#include "adore_ros2_msgs/msg/traffic_participant.hpp"
+#include "adore_ros2_msgs/msg/vehicle_info.hpp"
 
 namespace adore
 {
@@ -72,6 +75,9 @@ SimulatedVehicleNode::load_parameters()
   declare_parameter( "vehicle_id", 0 );
   get_parameter( "vehicle_id", current_traffic_participant.id );
 
+  declare_parameter( "v2x_id", 0 );
+  get_parameter( "v2x_id", v2x_id );
+
   current_vehicle_state.x              = ego_vehicle_start_position_x;
   current_vehicle_state.y              = ego_vehicle_start_position_y;
   current_vehicle_state.z              = 0;
@@ -94,7 +100,7 @@ void
 SimulatedVehicleNode::create_publishers()
 {
   publisher_vehicle_state_dynamic = create_publisher<adore_ros2_msgs::msg::VehicleStateDynamic>( "vehicle_state/dynamic", 10 );
-  publisher_state_monitor         = create_publisher<adore_ros2_msgs::msg::StateMonitor>( "vehicle_state/monitor", 10 );
+  publisher_vehicle_info = create_publisher<adore_ros2_msgs::msg::VehicleInfo>( "vehicle_info", 10 );
 }
 
 void
@@ -123,7 +129,8 @@ SimulatedVehicleNode::timer_callback()
   }
 
   last_update_time = current_time;
-  publish_vehicle_states();
+  publish_vehicle_state_dyanmic();
+  publish_vehicle_info();
 }
 
 void
@@ -173,15 +180,26 @@ SimulatedVehicleNode::vehicle_command_callback( const adore_ros2_msgs::msg::Vehi
     latest_vehicle_command = adore::dynamics::conversions::to_cpp_type( msg );
 }
 
+
 void
-SimulatedVehicleNode::publish_vehicle_states()
+SimulatedVehicleNode::publish_vehicle_state_dyanmic()
 {
   adore_ros2_msgs::msg::VehicleStateDynamic dynamic_msg = dynamics::conversions::to_ros_msg( current_vehicle_state );
   publisher_vehicle_state_dynamic->publish( dynamic_msg );
+}
 
-  adore_ros2_msgs::msg::StateMonitor state_monitor_msg;
-  state_monitor_msg.localization_error = pos_stddev;
-  publisher_state_monitor->publish( state_monitor_msg );
+void
+SimulatedVehicleNode::publish_vehicle_info()
+{
+  adore_ros2_msgs::msg::VehicleInfo vehicle_info;
+
+  vehicle_info.id = current_traffic_participant.id;
+  vehicle_info.v2x_station_id = v2x_id;
+  vehicle_info.physical_parameters = dynamics::conversions::to_ros_msg(model.params);
+
+  vehicle_info.localization_error = pos_stddev;
+
+  publisher_vehicle_info->publish( vehicle_info );
 }
 
 } // namespace simulated_vehicle

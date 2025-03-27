@@ -40,6 +40,7 @@
 #include "std_msgs/msg/bool.hpp"
 #include "std_msgs/msg/float64.hpp"
 #include "tf2_ros/transform_broadcaster.h"
+#include "adore_ros2_msgs/msg/vehicle_info.hpp"
 
 using namespace std::chrono_literals;
 
@@ -61,12 +62,13 @@ private:
   void timer_callback();
 
   void simulate_ego_vehicle();
-  void publish_vehicle_states();
+  void publish_vehicle_state_dyanmic();
+  void publish_vehicle_info();
   void add_noise();
 
   /******************************* PUBLISHERS ************************************************************/
   rclcpp::Publisher<adore_ros2_msgs::msg::VehicleStateDynamic>::SharedPtr   publisher_vehicle_state_dynamic;
-  rclcpp::Publisher<adore_ros2_msgs::msg::StateMonitor>::SharedPtr          publisher_state_monitor;
+  rclcpp::Publisher<adore_ros2_msgs::msg::VehicleInfo>::SharedPtr           publisher_vehicle_info;
 
   /******************************* SUBSCRIBERS ************************************************************/
   rclcpp::Subscription<adore_ros2_msgs::msg::VehicleCommand>::SharedPtr subscriber_vehicle_command;
@@ -81,6 +83,7 @@ private:
 
   /******************************* OTHER MEMBERS ************************************************************/
   dynamics::PhysicalVehicleModel model;
+  int v2x_id = 0;
 
   adore::dynamics::VehicleStateDynamic                          current_vehicle_state;
   adore::dynamics::TrafficParticipant                           current_traffic_participant;
