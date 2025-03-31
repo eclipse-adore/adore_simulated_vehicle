@@ -15,8 +15,13 @@
  *    Marko Mizdrak
  ********************************************************************************/
 #include "simulated_vehicle_node.hpp"
+#include <adore_math/point.h>
+#include <adore_map_conversions.hpp>
+#include <cstdint>
 
 #include "adore_math/distance.h"
+#include "adore_ros2_msgs/msg/goal_point.hpp"
+#include "adore_ros2_msgs/msg/vehicle_info.hpp"
 
 namespace adore
 {
@@ -75,6 +80,16 @@ SimulatedVehicleNode::load_parameters()
   declare_parameter( "vehicle_id", 0 );
   get_parameter( "vehicle_id", current_traffic_participant.id );
 
+  uint64_t v2x_id = 0;
+  declare_parameter( "v2x_id", 0 );
+  get_parameter( "v2x_id", v2x_id );
+
+  if (v2x_id > 0)
+  {
+    current_traffic_participant.v2x_id = v2x_id;
+  }
+  
+
   current_vehicle_state.x              = ego_vehicle_start_position_x;
   current_vehicle_state.y              = ego_vehicle_start_position_y;
   current_vehicle_state.z              = 0;
@@ -97,11 +112,12 @@ void
 SimulatedVehicleNode::create_publishers()
 {
   publisher_vehicle_state_dynamic = create_publisher<adore_ros2_msgs::msg::VehicleStateDynamic>( "vehicle_state/dynamic", 10 );
-  publisher_state_monitor         = create_publisher<adore_ros2_msgs::msg::StateMonitor>( "vehicle_state/monitor", 10 );
+  publisher_vehicle_info = create_publisher<adore_ros2_msgs::msg::VehicleInfo>( "vehicle_info", 10 );
 
   publisher_traffic_participant_set = create_publisher<adore_ros2_msgs::msg::TrafficParticipantSet>( "traffic_participants", 10 );
 
   publisher_traffic_participant = create_publisher<adore_ros2_msgs::msg::TrafficParticipant>( "simulated_traffic_participant", 10 );
+  publisher_infrastructure_traffic_participant_set = create_publisher<adore_ros2_msgs::msg::TrafficParticipantSet>( "infrastructure_traffic_participants", 10 );
 
 }
 
@@ -119,6 +135,8 @@ SimulatedVehicleNode::create_subscribers()
   subscriber_automation_toggle = create_subscription<std_msgs::msg::Bool>( "automation_toggle", 10,
                                                                            std::bind( &SimulatedVehicleNode::automation_toggle_callback,
                                                                                       this, std::placeholders::_1 ) );
+  subscriber_goal_point = create_subscription<adore_ros2_msgs::msg::GoalPoint>( "mission/goal_position", 10, std::bind( &SimulatedVehicleNode::goal_point_callback, this, std::placeholders::_1 ) );
+  subscriber_infrastructure_traffic_participants = create_subscription<adore_ros2_msgs::msg::TrafficParticipantSet>( "/global/infrastructure_calculated_traffic_participants", 10, std::bind( &SimulatedVehicleNode::infrastructure_traffic_participant_set_callback, this, std::placeholders::_1 ) );
 }
 
 void
@@ -172,8 +190,7 @@ SimulatedVehicleNode::timer_callback()
   if( controllable )
   {
     simulate_ego_vehicle();
-    if( current_traffic_participant.id == 0 )
-      publish_traffic_participants();
+    publish_traffic_participants();
   }
 
   last_update_time = current_time;
@@ -233,9 +250,13 @@ SimulatedVehicleNode::publish_vehicle_states()
   adore_ros2_msgs::msg::VehicleStateDynamic dynamic_msg = dynamics::conversions::to_ros_msg( current_vehicle_state );
   publisher_vehicle_state_dynamic->publish( dynamic_msg );
 
-  adore_ros2_msgs::msg::StateMonitor state_monitor_msg;
-  state_monitor_msg.localization_error = pos_stddev;
-  publisher_state_monitor->publish( state_monitor_msg );
+  adore_ros2_msgs::msg::VehicleInfo vehicle_info_msg;
+  if ( current_traffic_participant.v2x_id.has_value() )
+  {
+    vehicle_info_msg.v2x_station_id = current_traffic_participant.v2x_id.value();
+  }
+  vehicle_info_msg.localization_error = pos_stddev;
+  publisher_vehicle_info->publish( vehicle_info_msg );
 
   adore_ros2_msgs::msg::TrafficParticipant ego_as_traffic_participant = dynamics::conversions::to_ros_msg( current_traffic_participant );
   publisher_traffic_participant->publish( ego_as_traffic_participant );
@@ -263,6 +284,19 @@ SimulatedVehicleNode::publish_traffic_participants()
   }
   publisher_traffic_participant_set->publish( dynamics::conversions::to_ros_msg( traffic_participants ) );
 }
+
+void
+SimulatedVehicleNode::goal_point_callback( const adore_ros2_msgs::msg::GoalPoint& msg )
+{
+  current_traffic_participant.goal_point = adore::math::Point2d {msg.x_position, msg.y_position};
+}
+
+void
+SimulatedVehicleNode::infrastructure_traffic_participant_set_callback( const adore_ros2_msgs::msg::TrafficParticipantSet& msg)
+{
+  publisher_infrastructure_traffic_participant_set->publish(msg);
+}
+
 } // namespace simulated_vehicle
 } // namespace adore
 
