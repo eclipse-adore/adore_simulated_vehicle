@@ -26,11 +26,12 @@
 
 #include "adore_dynamics_conversions.hpp"
 #include "adore_ros2_msgs/msg/gear_state.hpp"
+#include "adore_ros2_msgs/msg/goal_point.hpp"
 #include "adore_ros2_msgs/msg/state_monitor.hpp"
 #include "adore_ros2_msgs/msg/traffic_participant_set.hpp"
 #include "adore_ros2_msgs/msg/vehicle_command.hpp"
-
 #include "adore_ros2_msgs/msg/vehicle_info.hpp"
+
 #include "dynamics/integration.hpp"
 #include "dynamics/physical_vehicle_model.hpp"
 #include "dynamics/vehicle_state.hpp"
@@ -41,7 +42,6 @@
 #include "std_msgs/msg/bool.hpp"
 #include "std_msgs/msg/float64.hpp"
 #include "tf2_ros/transform_broadcaster.h"
-#include "adore_ros2_msgs/msg/goal_point.hpp"
 
 using namespace std::chrono_literals;
 
@@ -66,8 +66,12 @@ private:
   void publish_vehicle_states();
   void add_noise();
   void publish_traffic_participants();
-
   void update_dynamic_subscriptions();
+
+
+  void                                           publish_ego_transform();
+  std::unique_ptr<tf2_ros::TransformBroadcaster> tf_transform_broadcaster;
+
 
   /******************************* PUBLISHERS ************************************************************/
   rclcpp::Publisher<adore_ros2_msgs::msg::VehicleStateDynamic>::SharedPtr   publisher_vehicle_state_dynamic;
@@ -77,11 +81,11 @@ private:
   rclcpp::Publisher<adore_ros2_msgs::msg::TrafficParticipantSet>::SharedPtr publisher_infrastructure_traffic_participant_set;
 
   /******************************* SUBSCRIBERS ************************************************************/
-  rclcpp::Subscription<adore_ros2_msgs::msg::VehicleCommand>::SharedPtr subscriber_vehicle_command;
-  rclcpp::Subscription<geometry_msgs::msg::Twist>::SharedPtr            subscriber_teleop_controller;
-  rclcpp::Subscription<std_msgs::msg::Bool>::SharedPtr                  subscriber_automation_toggle;
-  rclcpp::Subscription<adore_ros2_msgs::msg::GoalPoint>::SharedPtr      subscriber_goal_point;
-  rclcpp::Subscription<adore_ros2_msgs::msg::TrafficParticipantSet>::SharedPtr      subscriber_infrastructure_traffic_participants;
+  rclcpp::Subscription<adore_ros2_msgs::msg::VehicleCommand>::SharedPtr        subscriber_vehicle_command;
+  rclcpp::Subscription<geometry_msgs::msg::Twist>::SharedPtr                   subscriber_teleop_controller;
+  rclcpp::Subscription<std_msgs::msg::Bool>::SharedPtr                         subscriber_automation_toggle;
+  rclcpp::Subscription<adore_ros2_msgs::msg::GoalPoint>::SharedPtr             subscriber_goal_point;
+  rclcpp::Subscription<adore_ros2_msgs::msg::TrafficParticipantSet>::SharedPtr subscriber_infrastructure_traffic_participants;
 
   using StateSubscriber = rclcpp::Subscription<adore_ros2_msgs::msg::TrafficParticipant>::SharedPtr;
   std::unordered_map<std::string, StateSubscriber> other_vehicle_traffic_participant_subscribers;
