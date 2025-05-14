@@ -53,7 +53,7 @@ class SimulatedVehicleNode : public rclcpp::Node
 {
 public:
 
-  SimulatedVehicleNode();
+    explicit SimulatedVehicleNode(const rclcpp::NodeOptions & options);
 
 private:
 

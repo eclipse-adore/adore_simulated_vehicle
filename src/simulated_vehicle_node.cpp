@@ -28,8 +28,8 @@ namespace adore
 {
 namespace simulated_vehicle
 {
-SimulatedVehicleNode::SimulatedVehicleNode() :
-  Node( "simulated_vehicle_node" )
+SimulatedVehicleNode::SimulatedVehicleNode(const rclcpp::NodeOptions & options) :
+  Node( "simulated_vehicle_node" , options)
 {
   current_time     = now();
   last_update_time = now();
@@ -317,6 +317,10 @@ int
 main( int argc, char* argv[] )
 {
   rclcpp::init( argc, argv );
-  rclcpp::spin( std::make_shared<adore::simulated_vehicle::SimulatedVehicleNode>() );
+  rclcpp::spin( std::make_shared<adore::simulated_vehicle::SimulatedVehicleNode>(rclcpp::NodeOptions{}) );
   rclcpp::shutdown();
 }
+
+
+#include "rclcpp_components/register_node_macro.hpp"
+RCLCPP_COMPONENTS_REGISTER_NODE(adore::simulated_vehicle::SimulatedVehicleNode)
