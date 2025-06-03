@@ -26,9 +26,11 @@
 
 #include "adore_dynamics_conversions.hpp"
 #include "adore_ros2_msgs/msg/gear_state.hpp"
+#include "adore_ros2_msgs/msg/goal_point.hpp"
 #include "adore_ros2_msgs/msg/state_monitor.hpp"
 #include "adore_ros2_msgs/msg/traffic_participant_set.hpp"
 #include "adore_ros2_msgs/msg/vehicle_command.hpp"
+#include "adore_ros2_msgs/msg/vehicle_info.hpp"
 
 #include "dynamics/integration.hpp"
 #include "dynamics/physical_vehicle_model.hpp"
@@ -51,7 +53,7 @@ class SimulatedVehicleNode : public rclcpp::Node
 {
 public:
 
-  SimulatedVehicleNode();
+    explicit SimulatedVehicleNode(const rclcpp::NodeOptions & options);
 
 private:
 
@@ -62,23 +64,28 @@ private:
 
   void simulate_ego_vehicle();
   void publish_vehicle_states();
-  void publish_ego_transform();
   void add_noise();
   void publish_traffic_participants();
-
   void update_dynamic_subscriptions();
+
+
+  void                                           publish_ego_transform();
+  std::unique_ptr<tf2_ros::TransformBroadcaster> tf_transform_broadcaster;
+
 
   /******************************* PUBLISHERS ************************************************************/
   rclcpp::Publisher<adore_ros2_msgs::msg::VehicleStateDynamic>::SharedPtr   publisher_vehicle_state_dynamic;
-  rclcpp::Publisher<adore_ros2_msgs::msg::StateMonitor>::SharedPtr          publisher_state_monitor;
-  std::unique_ptr<tf2_ros::TransformBroadcaster>                            tf_transform_broadcaster;
+  rclcpp::Publisher<adore_ros2_msgs::msg::VehicleInfo>::SharedPtr           publisher_vehicle_info;
   rclcpp::Publisher<adore_ros2_msgs::msg::TrafficParticipantSet>::SharedPtr publisher_traffic_participant_set;
   rclcpp::Publisher<adore_ros2_msgs::msg::TrafficParticipant>::SharedPtr    publisher_traffic_participant;
+  rclcpp::Publisher<adore_ros2_msgs::msg::TrafficParticipantSet>::SharedPtr publisher_infrastructure_traffic_participant_set;
 
   /******************************* SUBSCRIBERS ************************************************************/
-  rclcpp::Subscription<adore_ros2_msgs::msg::VehicleCommand>::SharedPtr subscriber_vehicle_command;
-  rclcpp::Subscription<geometry_msgs::msg::Twist>::SharedPtr            subscriber_teleop_controller;
-  rclcpp::Subscription<std_msgs::msg::Bool>::SharedPtr                  subscriber_automation_toggle;
+  rclcpp::Subscription<adore_ros2_msgs::msg::VehicleCommand>::SharedPtr        subscriber_vehicle_command;
+  rclcpp::Subscription<geometry_msgs::msg::Twist>::SharedPtr                   subscriber_teleop_controller;
+  rclcpp::Subscription<std_msgs::msg::Bool>::SharedPtr                         subscriber_automation_toggle;
+  rclcpp::Subscription<adore_ros2_msgs::msg::GoalPoint>::SharedPtr             subscriber_goal_point;
+  rclcpp::Subscription<adore_ros2_msgs::msg::TrafficParticipantSet>::SharedPtr subscriber_infrastructure_traffic_participants;
 
   using StateSubscriber = rclcpp::Subscription<adore_ros2_msgs::msg::TrafficParticipant>::SharedPtr;
   std::unordered_map<std::string, StateSubscriber> other_vehicle_traffic_participant_subscribers;
@@ -86,6 +93,8 @@ private:
   void vehicle_command_callback( const adore_ros2_msgs::msg::VehicleCommand& msg );
   void teleop_controller_callback( const geometry_msgs::msg::Twist& msg );
   void automation_toggle_callback( const std_msgs::msg::Bool& msg );
+  void goal_point_callback( const adore_ros2_msgs::msg::GoalPoint& msg );
+  void infrastructure_traffic_participant_set_callback( const adore_ros2_msgs::msg::TrafficParticipantSet& msg );
   void other_vehicle_traffic_participant_callback( const adore_ros2_msgs::msg::TrafficParticipant& msg,
                                                    const std::string&                              vehicle_namespace );
 
@@ -114,7 +123,7 @@ private:
 
   bool   manual_control_override = false;
   bool   controllable            = false;
-  double sensor_range            = 100;
+  double sensor_range            = 1000;
 
   // Create normal distributions for each variable
   double pos_stddev;
