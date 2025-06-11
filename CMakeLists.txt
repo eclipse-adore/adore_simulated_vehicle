@@ -1,17 +1,15 @@
 cmake_minimum_required(VERSION 3.21)
+project(simulated_vehicle VERSION 0.1.0 LANGUAGES CXX)
 
-get_filename_component(CURRENT_DIR_NAME ${CMAKE_CURRENT_SOURCE_DIR} NAME)
-string(TOLOWER ${CURRENT_DIR_NAME} PROJECT)
-project(${PROJECT})
-
-include($ENV{SOURCE_DIRECTORY}/libraries/adore_libraries.cmake)
-
-include(requirements.cmake)
+# C++20 strict mode
 set(CMAKE_CXX_STANDARD 20)
-include_directories(${CMAKE_CURRENT_SOURCE_DIR}/include/)
+set(CMAKE_CXX_STANDARD_REQUIRED ON)
+set(CMAKE_CXX_EXTENSIONS OFF)
 
-set(CMAKE_EXPORT_COMPILE_COMMANDS ON CACHE INTERNAL "")
-# Ensure the Release build uses -O3 for optimization
+# Compile commands for IDEs
+set(CMAKE_EXPORT_COMPILE_COMMANDS ON)
+
+# Optimization and warning flags
 if(CMAKE_BUILD_TYPE STREQUAL "Release")
   add_compile_options(-O3)
 endif()
@@ -20,36 +18,83 @@ if(CMAKE_COMPILER_IS_GNUCXX OR CMAKE_CXX_COMPILER_ID MATCHES "Clang")
   add_compile_options(-Wall -Wextra -Wpedantic)
 endif()
 
-add_executable(${PROJECT}  src/simulated_vehicle_node.cpp)
+# Dependencies
+find_package(ament_cmake REQUIRED)
+find_package(rclcpp REQUIRED)
+find_package(rclcpp_components REQUIRED)
+find_package(adore_ros2_msgs REQUIRED)
+find_package(adore_map REQUIRED)
+find_package(adore_math REQUIRED)
+find_package(adore_dynamics REQUIRED)
+find_package(adore_dynamics_conversions REQUIRED)
 
+find_package(geometry_msgs REQUIRED)
+find_package(std_msgs REQUIRED)
+find_package(tf2 REQUIRED)
+find_package(tf2_ros REQUIRED)
 
-target_include_directories(${PROJECT} PRIVATE
-  $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/include>
-  $<INSTALL_INTERFACE:include>
+# Executable
+add_executable(${PROJECT_NAME}
+  src/simulated_vehicle_node.cpp
 )
 
-
-add_all_target_include_directories(${PROJECT})
-add_all_target_link_libraries(${PROJECT})
-
-
-
-install(TARGETS
-    ${PROJECT}
-  DESTINATION lib/${PROJECT}
+target_include_directories(${PROJECT_NAME}
+  PRIVATE
+    $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/include>
+    $<INSTALL_INTERFACE:include>
 )
 
-add_library(simulatedvehiclenode_component SHARED src/simulated_vehicle_node.cpp)
-add_all_target_include_directories(simulatedvehiclenode_component)
-add_all_target_link_libraries(simulatedvehiclenode_component)
+ament_target_dependencies(${PROJECT_NAME}
+  rclcpp
+  rclcpp_components
+  adore_ros2_msgs
+  adore_map
+  adore_math
+  adore_dynamics
+  geometry_msgs
+  std_msgs
+  tf2
+  tf2_ros
+  adore_dynamics_conversions
+)
+
+install(TARGETS ${PROJECT_NAME}
+  DESTINATION lib/${PROJECT_NAME}
+)
+
+# Component Library
+add_library(${PROJECT_NAME}_component SHARED src/simulated_vehicle_node.cpp)
+
+target_include_directories(${PROJECT_NAME}_component
+  PRIVATE
+    $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/include>
+    $<INSTALL_INTERFACE:include>
+)
+
+ament_target_dependencies(${PROJECT_NAME}_component
+  rclcpp
+  rclcpp_components
+  adore_ros2_msgs
+  adore_map
+  adore_math
+  adore_dynamics
+  geometry_msgs
+  std_msgs
+  tf2
+  tf2_ros
+  adore_dynamics_conversions
+)
+
 rclcpp_components_register_node(
-  simulatedvehiclenode_component
+  ${PROJECT_NAME}_component
   PLUGIN "adore::simulated_vehicle::SimulatedVehicleNode"
   EXECUTABLE simulatedvehiclenode
 )
-install(TARGETS simulatedvehiclenode_component
+
+install(TARGETS ${PROJECT_NAME}_component
   ARCHIVE DESTINATION lib
   LIBRARY DESTINATION lib
   RUNTIME DESTINATION bin
 )
+
 ament_package()

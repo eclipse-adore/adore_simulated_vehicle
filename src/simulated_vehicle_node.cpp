@@ -28,8 +28,8 @@ namespace adore
 {
 namespace simulated_vehicle
 {
-SimulatedVehicleNode::SimulatedVehicleNode(const rclcpp::NodeOptions & options) :
-  Node( "simulated_vehicle_node" , options)
+SimulatedVehicleNode::SimulatedVehicleNode( const rclcpp::NodeOptions& options ) :
+  Node( "simulated_vehicle_node", options )
 {
   current_time     = now();
   last_update_time = now();
@@ -43,8 +43,8 @@ SimulatedVehicleNode::SimulatedVehicleNode(const rclcpp::NodeOptions & options) 
   yaw_noise   = std::normal_distribution( 0.0, yaw_stddev );
   accel_noise = std::normal_distribution( 0.0, accel_stddev );
 
-  // Timer for dynamically discovering and subscribing to new vehicle topics
-  dynamic_subscription_timer = create_wall_timer( 1s, std::bind( &SimulatedVehicleNode::update_dynamic_subscriptions, this ) );
+  if( controllable )
+    dynamic_subscription_timer = create_wall_timer( 1s, std::bind( &SimulatedVehicleNode::update_dynamic_subscriptions, this ) );
 }
 
 void
@@ -91,18 +91,18 @@ SimulatedVehicleNode::load_parameters()
   }
   tf_transform_broadcaster = std::make_unique<tf2_ros::TransformBroadcaster>( *this );
 
-  current_vehicle_state.x              = ego_vehicle_start_position_x;
-  current_vehicle_state.y              = ego_vehicle_start_position_y;
-  current_vehicle_state.z              = 0;
-  current_vehicle_state.yaw_angle      = ego_vehicle_start_psi;
-  current_vehicle_state.vx             = 0;
-  current_vehicle_state.vy             = 0;
-  current_vehicle_state.yaw_rate       = 0;
-  current_vehicle_state.steering_angle = 0;
-  current_vehicle_state.steering_rate  = 0;
-  current_vehicle_state.ax             = 0;
-  current_vehicle_state.time           = current_time.seconds();
-
+  current_vehicle_state.x                         = ego_vehicle_start_position_x;
+  current_vehicle_state.y                         = ego_vehicle_start_position_y;
+  current_vehicle_state.z                         = 0;
+  current_vehicle_state.yaw_angle                 = ego_vehicle_start_psi;
+  current_vehicle_state.vx                        = 0;
+  current_vehicle_state.vy                        = 0;
+  current_vehicle_state.yaw_rate                  = 0;
+  current_vehicle_state.steering_angle            = 0;
+  current_vehicle_state.steering_rate             = 0;
+  current_vehicle_state.ax                        = 0;
+  current_vehicle_state.time                      = current_time.seconds();
+  current_traffic_participant.state               = current_vehicle_state;
   current_traffic_participant.physical_parameters = model.params;
 
   latest_vehicle_command.steering_angle = 0;
@@ -260,6 +260,9 @@ SimulatedVehicleNode::vehicle_command_callback( const adore_ros2_msgs::msg::Vehi
 void
 SimulatedVehicleNode::publish_vehicle_states()
 {
+  current_traffic_participant.state                     = current_vehicle_state;
+  current_traffic_participant.physical_parameters       = model.params;
+  current_traffic_participant.state.time                = now().seconds();
   adore_ros2_msgs::msg::VehicleStateDynamic dynamic_msg = dynamics::conversions::to_ros_msg( current_vehicle_state );
   publisher_vehicle_state_dynamic->publish( dynamic_msg );
 
@@ -285,16 +288,19 @@ SimulatedVehicleNode::other_vehicle_traffic_participant_callback( const adore_ro
 void
 SimulatedVehicleNode::publish_traffic_participants()
 {
+
   dynamics::TrafficParticipantSet traffic_participants;
 
   for( const auto& [vehicle_namespace, other_vehicle] : other_vehicles )
   {
     double distance = adore::math::distance_2d( other_vehicle.state, current_vehicle_state );
+
     if( distance > sensor_range )
       continue;
 
     traffic_participants.participants[other_vehicle.id] = other_vehicle;
   }
+
   publisher_traffic_participant_set->publish( dynamics::conversions::to_ros_msg( traffic_participants ) );
 }
 
@@ -317,10 +323,9 @@ int
 main( int argc, char* argv[] )
 {
   rclcpp::init( argc, argv );
-  rclcpp::spin( std::make_shared<adore::simulated_vehicle::SimulatedVehicleNode>(rclcpp::NodeOptions{}) );
+  rclcpp::spin( std::make_shared<adore::simulated_vehicle::SimulatedVehicleNode>( rclcpp::NodeOptions{} ) );
   rclcpp::shutdown();
 }
 
-
 #include "rclcpp_components/register_node_macro.hpp"
-RCLCPP_COMPONENTS_REGISTER_NODE(adore::simulated_vehicle::SimulatedVehicleNode)
+RCLCPP_COMPONENTS_REGISTER_NODE( adore::simulated_vehicle::SimulatedVehicleNode )
