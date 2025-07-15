@@ -20,7 +20,6 @@
 
 #include "adore_math/distance.h"
 #include "adore_ros2_msgs/msg/goal_point.hpp"
-#include "adore_ros2_msgs/msg/vehicle_info.hpp"
 #include <adore_map_conversions.hpp>
 #include <adore_math/point.h>
 
@@ -113,7 +112,6 @@ void
 SimulatedVehicleNode::create_publishers()
 {
   publisher_vehicle_state_dynamic = create_publisher<adore_ros2_msgs::msg::VehicleStateDynamic>( "vehicle_state/dynamic", 10 );
-  publisher_vehicle_info          = create_publisher<adore_ros2_msgs::msg::VehicleInfo>( "vehicle_info", 10 );
 
   publisher_traffic_participant_set = create_publisher<adore_ros2_msgs::msg::TrafficParticipantSet>( "traffic_participants", 10 );
 
@@ -178,8 +176,8 @@ SimulatedVehicleNode::update_dynamic_subscriptions()
       // Create a new subscription
       auto subscription = create_subscription<adore_ros2_msgs::msg::TrafficParticipant>(
         topic_name, 10, [this, vehicle_namespace]( const adore_ros2_msgs::msg::TrafficParticipant& msg ) {
-          other_vehicle_traffic_participant_callback( msg, vehicle_namespace );
-        } );
+        other_vehicle_traffic_participant_callback( msg, vehicle_namespace );
+      } );
 
       other_vehicle_traffic_participant_subscribers[vehicle_namespace] = subscription;
 
@@ -268,15 +266,12 @@ SimulatedVehicleNode::publish_vehicle_states()
   current_traffic_participant.physical_parameters       = model.params;
   current_traffic_participant.state.time                = now().seconds();
   adore_ros2_msgs::msg::VehicleStateDynamic dynamic_msg = dynamics::conversions::to_ros_msg( current_vehicle_state );
+  auto generator         = std::default_random_engine( std::chrono::system_clock::now().time_since_epoch().count() );
+  dynamic_msg.x         += pos_noise( generator );
+  dynamic_msg.y         += pos_noise( generator );
+  dynamic_msg.vx        += vel_noise( generator );
+  dynamic_msg.yaw_angle += yaw_noise( generator );
   publisher_vehicle_state_dynamic->publish( dynamic_msg );
-
-  adore_ros2_msgs::msg::VehicleInfo vehicle_info_msg;
-  if( current_traffic_participant.v2x_id.has_value() )
-  {
-    vehicle_info_msg.v2x_station_id = current_traffic_participant.v2x_id.value();
-  }
-  vehicle_info_msg.localization_error = pos_stddev;
-  publisher_vehicle_info->publish( vehicle_info_msg );
 
   adore_ros2_msgs::msg::TrafficParticipant ego_as_traffic_participant = dynamics::conversions::to_ros_msg( current_traffic_participant );
   publisher_traffic_participant->publish( ego_as_traffic_participant );

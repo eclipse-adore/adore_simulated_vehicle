@@ -30,7 +30,6 @@
 #include "adore_ros2_msgs/msg/state_monitor.hpp"
 #include "adore_ros2_msgs/msg/traffic_participant_set.hpp"
 #include "adore_ros2_msgs/msg/vehicle_command.hpp"
-#include "adore_ros2_msgs/msg/vehicle_info.hpp"
 
 #include "dynamics/integration.hpp"
 #include "dynamics/physical_vehicle_model.hpp"
@@ -53,7 +52,7 @@ class SimulatedVehicleNode : public rclcpp::Node
 {
 public:
 
-    explicit SimulatedVehicleNode(const rclcpp::NodeOptions & options);
+  explicit SimulatedVehicleNode( const rclcpp::NodeOptions& options );
 
 private:
 
@@ -75,7 +74,6 @@ private:
 
   /******************************* PUBLISHERS ************************************************************/
   rclcpp::Publisher<adore_ros2_msgs::msg::VehicleStateDynamic>::SharedPtr   publisher_vehicle_state_dynamic;
-  rclcpp::Publisher<adore_ros2_msgs::msg::VehicleInfo>::SharedPtr           publisher_vehicle_info;
   rclcpp::Publisher<adore_ros2_msgs::msg::TrafficParticipantSet>::SharedPtr publisher_traffic_participant_set;
   rclcpp::Publisher<adore_ros2_msgs::msg::TrafficParticipant>::SharedPtr    publisher_traffic_participant;
   rclcpp::Publisher<adore_ros2_msgs::msg::TrafficParticipantSet>::SharedPtr publisher_infrastructure_traffic_participant_set;
