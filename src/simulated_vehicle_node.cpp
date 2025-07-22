@@ -307,6 +307,15 @@ SimulatedVehicleNode::goal_point_callback( const adore_ros2_msgs::msg::GoalPoint
 void
 SimulatedVehicleNode::infrastructure_traffic_participant_set_callback( const adore_ros2_msgs::msg::TrafficParticipantSet& msg )
 {
+
+  auto participant_cpp = dynamics::conversions::to_cpp_type( msg );
+  for ( auto participant : participant_cpp.participants )
+  {
+    
+    std::cerr << "Participant delay 3: " << participant.first << ", " << now().seconds() - participant.second.state.time << std::endl;
+  }
+
+  
   publisher_infrastructure_traffic_participant_set->publish( msg );
 }
 
