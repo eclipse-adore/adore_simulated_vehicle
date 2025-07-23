@@ -118,8 +118,9 @@ SimulatedVehicleNode::create_publishers()
   publisher_traffic_participant_set = create_publisher<adore_ros2_msgs::msg::TrafficParticipantSet>( "traffic_participants", 10 );
 
   publisher_traffic_participant = create_publisher<adore_ros2_msgs::msg::TrafficParticipant>( "simulated_traffic_participant", 10 );
+
   publisher_infrastructure_traffic_participant_set
-    = create_publisher<adore_ros2_msgs::msg::TrafficParticipantSet>( "infrastructure_traffic_participants", 10 );
+    = create_publisher<adore_ros2_msgs::msg::TrafficParticipantSet>( "infrastructure_traffic_participants", 1 );
 }
 
 void
@@ -136,11 +137,13 @@ SimulatedVehicleNode::create_subscribers()
   subscriber_automation_toggle                   = create_subscription<std_msgs::msg::Bool>( "automation_toggle", 10,
                                                                                              std::bind( &SimulatedVehicleNode::automation_toggle_callback,
                                                                                                         this, std::placeholders::_1 ) );
+
   subscriber_goal_point                          = create_subscription<adore_ros2_msgs::msg::GoalPoint>( "mission/goal_position", 10,
                                                                                                          std::bind( &SimulatedVehicleNode::goal_point_callback, this,
                                                                                                                     std::placeholders::_1 ) );
+
   subscriber_infrastructure_traffic_participants = create_subscription<adore_ros2_msgs::msg::TrafficParticipantSet>(
-    "/global/infrastructure_calculated_traffic_participants", 10,
+    "/global/infrastructure_calculated_traffic_participants", 1,
     std::bind( &SimulatedVehicleNode::infrastructure_traffic_participant_set_callback, this, std::placeholders::_1 ) );
 }
 
@@ -309,13 +312,6 @@ SimulatedVehicleNode::infrastructure_traffic_participant_set_callback( const ado
 {
 
   auto participant_cpp = dynamics::conversions::to_cpp_type( msg );
-  for ( auto participant : participant_cpp.participants )
-  {
-    
-    std::cerr << "Participant delay 3: " << participant.first << ", " << now().seconds() - participant.second.state.time << std::endl;
-  }
-
-  
   publisher_infrastructure_traffic_participant_set->publish( msg );
 }
 
