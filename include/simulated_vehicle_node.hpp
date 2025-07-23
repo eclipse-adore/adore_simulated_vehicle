@@ -9,10 +9,10 @@
  * SPDX-License-Identifier: EPL-2.0
  *
  * Contributors:
+ *    Marko Mizdrak
  *    Thomas Lobig
  *    Mikkel Skov Maarssø
  *    Sanath Himasekhar Konthala
- *    Marko Mizdrak
  ********************************************************************************/
 
 #pragma once
@@ -24,6 +24,7 @@
 #include <unordered_map>
 #include <vector>
 
+#include "adore_dynamics_adapters.hpp"
 #include "adore_dynamics_conversions.hpp"
 #include "adore_ros2_msgs/msg/gear_state.hpp"
 #include "adore_ros2_msgs/msg/goal_point.hpp"
@@ -73,28 +74,22 @@ private:
 
 
   /******************************* PUBLISHERS ************************************************************/
-  rclcpp::Publisher<adore_ros2_msgs::msg::VehicleStateDynamic>::SharedPtr   publisher_vehicle_state_dynamic;
-  rclcpp::Publisher<adore_ros2_msgs::msg::TrafficParticipantSet>::SharedPtr publisher_traffic_participant_set;
-  rclcpp::Publisher<adore_ros2_msgs::msg::TrafficParticipant>::SharedPtr    publisher_traffic_participant;
-  rclcpp::Publisher<adore_ros2_msgs::msg::TrafficParticipantSet>::SharedPtr publisher_infrastructure_traffic_participant_set;
+  rclcpp::Publisher<StateAdapter>::SharedPtr          publisher_vehicle_state_dynamic;
+  rclcpp::Publisher<ParticipantSetAdapter>::SharedPtr publisher_traffic_participant_set;
+  rclcpp::Publisher<ParticipantAdapter>::SharedPtr    publisher_traffic_participant;
 
   /******************************* SUBSCRIBERS ************************************************************/
-  rclcpp::Subscription<adore_ros2_msgs::msg::VehicleCommand>::SharedPtr        subscriber_vehicle_command;
-  rclcpp::Subscription<geometry_msgs::msg::Twist>::SharedPtr                   subscriber_teleop_controller;
-  rclcpp::Subscription<std_msgs::msg::Bool>::SharedPtr                         subscriber_automation_toggle;
-  rclcpp::Subscription<adore_ros2_msgs::msg::GoalPoint>::SharedPtr             subscriber_goal_point;
-  rclcpp::Subscription<adore_ros2_msgs::msg::TrafficParticipantSet>::SharedPtr subscriber_infrastructure_traffic_participants;
+  rclcpp::Subscription<VehicleCommandAdapter>::SharedPtr     subscriber_vehicle_command;
+  rclcpp::Subscription<geometry_msgs::msg::Twist>::SharedPtr subscriber_teleop_controller;
+  rclcpp::Subscription<std_msgs::msg::Bool>::SharedPtr       subscriber_automation_toggle;
 
-  using StateSubscriber = rclcpp::Subscription<adore_ros2_msgs::msg::TrafficParticipant>::SharedPtr;
+  using StateSubscriber = rclcpp::Subscription<ParticipantAdapter>::SharedPtr;
   std::unordered_map<std::string, StateSubscriber> other_vehicle_traffic_participant_subscribers;
 
-  void vehicle_command_callback( const adore_ros2_msgs::msg::VehicleCommand& msg );
+  void vehicle_command_callback( const dynamics::VehicleCommand& msg );
   void teleop_controller_callback( const geometry_msgs::msg::Twist& msg );
   void automation_toggle_callback( const std_msgs::msg::Bool& msg );
-  void goal_point_callback( const adore_ros2_msgs::msg::GoalPoint& msg );
-  void infrastructure_traffic_participant_set_callback( const adore_ros2_msgs::msg::TrafficParticipantSet& msg );
-  void other_vehicle_traffic_participant_callback( const adore_ros2_msgs::msg::TrafficParticipant& msg,
-                                                   const std::string&                              vehicle_namespace );
+  void other_vehicle_traffic_participant_callback( const dynamics::TrafficParticipant& msg, const std::string& vehicle_namespace );
 
   rclcpp::TimerBase::SharedPtr main_timer;
   rclcpp::TimerBase::SharedPtr dynamic_subscription_timer;
@@ -102,10 +97,10 @@ private:
   /******************************* OTHER MEMBERS ************************************************************/
   dynamics::PhysicalVehicleModel model;
 
-  adore::dynamics::VehicleStateDynamic                          current_vehicle_state;
-  adore::dynamics::TrafficParticipant                           current_traffic_participant;
-  adore::dynamics::VehicleStateDynamic                          vehicle_state_last_time_step;
-  adore::dynamics::VehicleCommand                               latest_vehicle_command;
+  dynamics::TrafficParticipant                                  traffic_participant;
+  dynamics::VehicleStateDynamic                                 current_vehicle_state;
+  dynamics::VehicleStateDynamic                                 vehicle_state_last_time_step;
+  dynamics::VehicleCommand                                      latest_vehicle_command;
   std::unordered_map<std::string, dynamics::TrafficParticipant> other_vehicles;
 
   rclcpp::Time current_time;

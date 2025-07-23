@@ -9,10 +9,10 @@
  * SPDX-License-Identifier: EPL-2.0
  *
  * Contributors:
+ *    Marko Mizdrak
  *    Thomas Lobig
  *    Mikkel Skov Maarssø
  *    Sanath Himasekhar Konthala
- *    Marko Mizdrak
  ********************************************************************************/
 #include "simulated_vehicle_node.hpp"
 
@@ -49,75 +49,44 @@ SimulatedVehicleNode::SimulatedVehicleNode( const rclcpp::NodeOptions& options )
 void
 SimulatedVehicleNode::load_parameters()
 {
-  std::string vehicle_model_file;
-  declare_parameter( "vehicle_model_file", "" );
-  get_parameter( "vehicle_model_file", vehicle_model_file );
-  model = dynamics::PhysicalVehicleModel( vehicle_model_file, false );
+  const std::string vehicle_model_file = declare_parameter<std::string>( "vehicle_model_file", "" );
+  model                                = dynamics::PhysicalVehicleModel( vehicle_model_file, false );
 
-  declare_parameter( "controllable", true );
-  get_parameter( "controllable", controllable );
+  // Controllability
+  controllable = declare_parameter<bool>( "controllable", true );
 
-  declare_parameter( "set_start_position_x", 0.0 );
-  declare_parameter( "set_start_position_y", 0.0 );
-  declare_parameter( "set_start_psi", 0.0 );
-  declare_parameter<std::vector<double>>( "set_shape", { 4.5, 2.0, 2.0 } );
+  // Start position and shape
+  ego_vehicle_start_position_x = declare_parameter<double>( "set_start_position_x", 0.0 );
+  ego_vehicle_start_position_y = declare_parameter<double>( "set_start_position_y", 0.0 );
+  ego_vehicle_start_psi        = declare_parameter<double>( "set_start_psi", 0.0 );
+  ego_vehicle_shape            = declare_parameter<std::vector<double>>( "set_shape", { 4.5, 2.0, 2.0 } );
 
-  get_parameter( "set_start_position_x", ego_vehicle_start_position_x );
-  get_parameter( "set_start_position_y", ego_vehicle_start_position_y );
-  get_parameter( "set_start_psi", ego_vehicle_start_psi );
-  get_parameter( "set_shape", ego_vehicle_shape );
+  // Noise parameters
+  pos_stddev   = declare_parameter<double>( "position_noise_stddev", 0.0 );
+  vel_stddev   = declare_parameter<double>( "velocity_noise_stddev", 0.0 );
+  yaw_stddev   = declare_parameter<double>( "yaw_noise_stddev", 0.0 );
+  accel_stddev = declare_parameter<double>( "acceleration_noise_stddev", 0.0 );
 
-  declare_parameter( "position_noise_stddev", 0.0 );
-  declare_parameter( "velocity_noise_stddev", 0.0 );
-  declare_parameter( "yaw_noise_stddev", 0.00 );
-  declare_parameter( "acceleration_noise_stddev", 0.00 );
+  // Vehicle ID
+  traffic_participant.id     = declare_parameter<int>( "vehicle_id", 0 );
+  traffic_participant.v2x_id = declare_parameter<int>( "v2x_id", 0 );
 
-  get_parameter( "position_noise_stddev", pos_stddev );
-  get_parameter( "velocity_noise_stddev", vel_stddev );
-  get_parameter( "yaw_noise_stddev", yaw_stddev );
-  get_parameter( "acceleration_noise_stddev", accel_stddev );
+  current_vehicle_state.x                 = ego_vehicle_start_position_x;
+  current_vehicle_state.y                 = ego_vehicle_start_position_y;
+  current_vehicle_state.yaw_angle         = ego_vehicle_start_psi;
+  current_vehicle_state.time              = current_time.seconds();
+  traffic_participant.state               = current_vehicle_state;
+  traffic_participant.physical_parameters = model.params;
 
-  declare_parameter( "vehicle_id", 0 );
-  get_parameter( "vehicle_id", current_traffic_participant.id );
-
-  uint64_t v2x_id = 0;
-  declare_parameter( "v2x_id", 0 );
-  get_parameter( "v2x_id", v2x_id );
-
-  if( v2x_id > 0 )
-  {
-    current_traffic_participant.v2x_id = v2x_id;
-  }
   tf_transform_broadcaster = std::make_unique<tf2_ros::TransformBroadcaster>( *this );
-
-  current_vehicle_state.x                         = ego_vehicle_start_position_x;
-  current_vehicle_state.y                         = ego_vehicle_start_position_y;
-  current_vehicle_state.z                         = 0;
-  current_vehicle_state.yaw_angle                 = ego_vehicle_start_psi;
-  current_vehicle_state.vx                        = 0;
-  current_vehicle_state.vy                        = 0;
-  current_vehicle_state.yaw_rate                  = 0;
-  current_vehicle_state.steering_angle            = 0;
-  current_vehicle_state.steering_rate             = 0;
-  current_vehicle_state.ax                        = 0;
-  current_vehicle_state.time                      = current_time.seconds();
-  current_traffic_participant.state               = current_vehicle_state;
-  current_traffic_participant.physical_parameters = model.params;
-
-  latest_vehicle_command.steering_angle = 0;
-  latest_vehicle_command.acceleration   = 0;
 }
 
 void
 SimulatedVehicleNode::create_publishers()
 {
-  publisher_vehicle_state_dynamic = create_publisher<adore_ros2_msgs::msg::VehicleStateDynamic>( "vehicle_state/dynamic", 10 );
-
-  publisher_traffic_participant_set = create_publisher<adore_ros2_msgs::msg::TrafficParticipantSet>( "traffic_participants", 10 );
-
-  publisher_traffic_participant = create_publisher<adore_ros2_msgs::msg::TrafficParticipant>( "simulated_traffic_participant", 10 );
-  publisher_infrastructure_traffic_participant_set
-    = create_publisher<adore_ros2_msgs::msg::TrafficParticipantSet>( "infrastructure_traffic_participants", 10 );
+  publisher_vehicle_state_dynamic   = create_publisher<StateAdapter>( "vehicle_state/dynamic", 10 );
+  publisher_traffic_participant_set = create_publisher<ParticipantSetAdapter>( "traffic_participants", 10 );
+  publisher_traffic_participant     = create_publisher<ParticipantAdapter>( "simulated_traffic_participant", 10 );
 }
 
 void
@@ -125,21 +94,16 @@ SimulatedVehicleNode::create_subscribers()
 {
   main_timer = create_wall_timer( time_step_s * 1000ms, std::bind( &SimulatedVehicleNode::timer_callback, this ) );
 
-  subscriber_vehicle_command = create_subscription<adore_ros2_msgs::msg::VehicleCommand>(
-    "next_vehicle_command", 10, std::bind( &SimulatedVehicleNode::vehicle_command_callback, this, std::placeholders::_1 ) );
+  subscriber_vehicle_command = create_subscription<VehicleCommandAdapter>( "next_vehicle_command", 10,
+                                                                           std::bind( &SimulatedVehicleNode::vehicle_command_callback, this,
+                                                                                      std::placeholders::_1 ) );
 
   subscriber_teleop_controller = create_subscription<geometry_msgs::msg::Twist>(
     "teleop_controller", 10, std::bind( &SimulatedVehicleNode::teleop_controller_callback, this, std::placeholders::_1 ) );
 
-  subscriber_automation_toggle                   = create_subscription<std_msgs::msg::Bool>( "automation_toggle", 10,
-                                                                                             std::bind( &SimulatedVehicleNode::automation_toggle_callback,
-                                                                                                        this, std::placeholders::_1 ) );
-  subscriber_goal_point                          = create_subscription<adore_ros2_msgs::msg::GoalPoint>( "mission/goal_position", 10,
-                                                                                                         std::bind( &SimulatedVehicleNode::goal_point_callback, this,
-                                                                                                                    std::placeholders::_1 ) );
-  subscriber_infrastructure_traffic_participants = create_subscription<adore_ros2_msgs::msg::TrafficParticipantSet>(
-    "/global/infrastructure_calculated_traffic_participants", 10,
-    std::bind( &SimulatedVehicleNode::infrastructure_traffic_participant_set_callback, this, std::placeholders::_1 ) );
+  subscriber_automation_toggle = create_subscription<std_msgs::msg::Bool>( "automation_toggle", 10,
+                                                                           std::bind( &SimulatedVehicleNode::automation_toggle_callback,
+                                                                                      this, std::placeholders::_1 ) );
 }
 
 void
@@ -174,8 +138,8 @@ SimulatedVehicleNode::update_dynamic_subscriptions()
       }
 
       // Create a new subscription
-      auto subscription = create_subscription<adore_ros2_msgs::msg::TrafficParticipant>(
-        topic_name, 10, [this, vehicle_namespace]( const adore_ros2_msgs::msg::TrafficParticipant& msg ) {
+      auto subscription = create_subscription<ParticipantAdapter>( topic_name, 10,
+                                                                   [this, vehicle_namespace]( const dynamics::TrafficParticipant& msg ) {
         other_vehicle_traffic_participant_callback( msg, vehicle_namespace );
       } );
 
@@ -218,7 +182,7 @@ SimulatedVehicleNode::simulate_ego_vehicle()
 
   current_vehicle_state.yaw_rate = math::normalize_angle( current_vehicle_state.yaw_angle - prev_state.yaw_angle ) / time_step_s;
 
-  current_traffic_participant.state = current_vehicle_state;
+  traffic_participant.state = current_vehicle_state;
 }
 
 void
@@ -253,35 +217,33 @@ SimulatedVehicleNode::automation_toggle_callback( const std_msgs::msg::Bool& msg
 }
 
 void
-SimulatedVehicleNode::vehicle_command_callback( const adore_ros2_msgs::msg::VehicleCommand& msg )
+SimulatedVehicleNode::vehicle_command_callback( const dynamics::VehicleCommand& msg )
 {
   if( !manual_control_override )
-    latest_vehicle_command = adore::dynamics::conversions::to_cpp_type( msg );
+    latest_vehicle_command = msg;
 }
 
 void
 SimulatedVehicleNode::publish_vehicle_states()
 {
-  current_traffic_participant.state                     = current_vehicle_state;
-  current_traffic_participant.physical_parameters       = model.params;
-  current_traffic_participant.state.time                = now().seconds();
-  adore_ros2_msgs::msg::VehicleStateDynamic dynamic_msg = dynamics::conversions::to_ros_msg( current_vehicle_state );
-  auto generator         = std::default_random_engine( std::chrono::system_clock::now().time_since_epoch().count() );
-  dynamic_msg.x         += pos_noise( generator );
-  dynamic_msg.y         += pos_noise( generator );
-  dynamic_msg.vx        += vel_noise( generator );
-  dynamic_msg.yaw_angle += yaw_noise( generator );
-  publisher_vehicle_state_dynamic->publish( dynamic_msg );
-
-  adore_ros2_msgs::msg::TrafficParticipant ego_as_traffic_participant = dynamics::conversions::to_ros_msg( current_traffic_participant );
-  publisher_traffic_participant->publish( ego_as_traffic_participant );
+  traffic_participant.state                = current_vehicle_state;
+  traffic_participant.physical_parameters  = model.params;
+  traffic_participant.state.time           = now().seconds();
+  auto noisy_state                         = current_vehicle_state;
+  auto generator                           = std::default_random_engine( std::chrono::system_clock::now().time_since_epoch().count() );
+  noisy_state.x                           += pos_noise( generator );
+  noisy_state.y                           += pos_noise( generator );
+  noisy_state.vx                          += vel_noise( generator );
+  noisy_state.yaw_angle                   += yaw_noise( generator );
+  publisher_vehicle_state_dynamic->publish( noisy_state );
+  publisher_traffic_participant->publish( traffic_participant );
 }
 
 void
-SimulatedVehicleNode::other_vehicle_traffic_participant_callback( const adore_ros2_msgs::msg::TrafficParticipant& msg,
-                                                                  const std::string&                              vehicle_namespace )
+SimulatedVehicleNode::other_vehicle_traffic_participant_callback( const dynamics::TrafficParticipant& msg,
+                                                                  const std::string&                  vehicle_namespace )
 {
-  other_vehicles[vehicle_namespace] = dynamics::conversions::to_cpp_type( msg );
+  other_vehicles[vehicle_namespace] = msg;
 }
 
 void
@@ -300,19 +262,7 @@ SimulatedVehicleNode::publish_traffic_participants()
     traffic_participants.participants[other_vehicle.id] = other_vehicle;
   }
 
-  publisher_traffic_participant_set->publish( dynamics::conversions::to_ros_msg( traffic_participants ) );
-}
-
-void
-SimulatedVehicleNode::goal_point_callback( const adore_ros2_msgs::msg::GoalPoint& msg )
-{
-  current_traffic_participant.goal_point = adore::math::Point2d{ msg.x_position, msg.y_position };
-}
-
-void
-SimulatedVehicleNode::infrastructure_traffic_participant_set_callback( const adore_ros2_msgs::msg::TrafficParticipantSet& msg )
-{
-  publisher_infrastructure_traffic_participant_set->publish( msg );
+  publisher_traffic_participant_set->publish( traffic_participants );
 }
 
 } // namespace simulated_vehicle
