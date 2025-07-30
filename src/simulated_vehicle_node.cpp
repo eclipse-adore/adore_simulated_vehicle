@@ -24,6 +24,8 @@
 #include <adore_map_conversions.hpp>
 #include <adore_math/point.h>
 
+#include <adore_map/lat_long_conversions.hpp>
+
 namespace adore
 {
 namespace simulated_vehicle
@@ -91,8 +93,23 @@ SimulatedVehicleNode::load_parameters()
   }
   tf_transform_broadcaster = std::make_unique<tf2_ros::TransformBroadcaster>( *this );
 
-  current_vehicle_state.x              = ego_vehicle_start_position_x;
-  current_vehicle_state.y              = ego_vehicle_start_position_y;
+  std::optional<std::vector<double>> ego_vehicle_position_utm = map::convert_lat_lon_to_utm(ego_vehicle_start_position_x, ego_vehicle_start_position_y);
+  
+  double ego_vehicle_start_position_utm_x = 0.0; 
+  double ego_vehicle_start_position_utm_y = 0.0; 
+
+  if( ego_vehicle_position_utm.has_value() )
+  {
+    ego_vehicle_start_position_utm_x = ego_vehicle_position_utm.value()[0];
+    ego_vehicle_start_position_utm_y = ego_vehicle_position_utm.value()[1];
+  }
+  else
+  {
+    std::cerr << "Failed to convert ego vehicle start position to utm" << std::endl;
+  }
+
+  current_vehicle_state.x              = ego_vehicle_start_position_utm_x;
+  current_vehicle_state.y              = ego_vehicle_start_position_utm_y;
   current_vehicle_state.z              = 0;
   current_vehicle_state.yaw_angle      = ego_vehicle_start_psi;
   current_vehicle_state.vx             = 0;
