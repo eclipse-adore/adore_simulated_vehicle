@@ -84,7 +84,7 @@ SimulatedVehicleNode::load_parameters()
 void
 SimulatedVehicleNode::create_publishers()
 {
-  publisher_vehicle_state_dynamic   = create_publisher<StateAdapter>( "vehicle_state/dynamic", 10 );
+  publisher_vehicle_state_dynamic   = create_publisher<StateAdapter>( "vehicle_state_dynamic", 10 );
   publisher_traffic_participant_set = create_publisher<ParticipantSetAdapter>( "traffic_participants", 10 );
   publisher_traffic_participant     = create_publisher<ParticipantAdapter>( "simulated_traffic_participant", 10 );
 }
