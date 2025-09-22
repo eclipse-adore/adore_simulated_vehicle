@@ -59,7 +59,6 @@ SimulatedVehicleNode::load_parameters()
   ego_vehicle_start_position_x = declare_parameter<double>( "set_start_position_x", 0.0 );
   ego_vehicle_start_position_y = declare_parameter<double>( "set_start_position_y", 0.0 );
   ego_vehicle_start_psi        = declare_parameter<double>( "set_start_psi", 0.0 );
-  ego_vehicle_shape            = declare_parameter<std::vector<double>>( "set_shape", { 4.5, 2.0, 2.0 } );
 
   // Noise parameters
   pos_stddev   = declare_parameter<double>( "position_noise_stddev", 0.0 );
@@ -71,10 +70,16 @@ SimulatedVehicleNode::load_parameters()
   traffic_participant.id     = declare_parameter<int>( "vehicle_id", 0 );
   traffic_participant.v2x_id = declare_parameter<int>( "v2x_id", 0 );
 
-  current_vehicle_state.x                 = ego_vehicle_start_position_x;
-  current_vehicle_state.y                 = ego_vehicle_start_position_y;
-  current_vehicle_state.yaw_angle         = ego_vehicle_start_psi;
-  current_vehicle_state.time              = current_time.seconds();
+  current_vehicle_state.x               = ego_vehicle_start_position_x;
+  current_vehicle_state.y               = ego_vehicle_start_position_y;
+  current_vehicle_state.yaw_angle       = ego_vehicle_start_psi;
+  current_vehicle_state.time            = current_time.seconds();
+  std::string current_vehicle_namespace = get_namespace();
+  if( !current_vehicle_namespace.empty() && current_vehicle_namespace.front() == '/' )
+  {
+    current_vehicle_namespace = current_vehicle_namespace.substr( 1 );
+  }
+  current_vehicle_state.frame_id          = current_vehicle_namespace; // Set the frame_id to the node's namespace
   traffic_participant.state               = current_vehicle_state;
   traffic_participant.physical_parameters = model.params;
 
@@ -173,6 +178,7 @@ SimulatedVehicleNode::simulate_ego_vehicle()
 
   current_vehicle_state = dynamics::integrate_rk4( current_vehicle_state, latest_vehicle_command, time_step_s, model.motion_model );
   double current_v      = current_vehicle_state.vx;
+  current_vehicle_state.frame_id = prev_state.frame_id;
 
   current_vehicle_state.ax             = ( current_v - prev_v ) / time_step_s;
   current_vehicle_state.steering_angle = latest_vehicle_command.steering_angle;
@@ -235,6 +241,7 @@ SimulatedVehicleNode::publish_vehicle_states()
   noisy_state.y                           += pos_noise( generator );
   noisy_state.vx                          += vel_noise( generator );
   noisy_state.yaw_angle                   += yaw_noise( generator );
+
   publisher_vehicle_state_dynamic->publish( noisy_state );
   publisher_traffic_participant->publish( traffic_participant );
 }

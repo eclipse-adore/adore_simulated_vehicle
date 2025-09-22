@@ -109,10 +109,9 @@ private:
   double integration_step_size = 0.005;
   double time_step_s           = 0.05;
 
-  double              ego_vehicle_start_position_x = 0;
-  double              ego_vehicle_start_position_y = 0;
-  double              ego_vehicle_start_psi        = 0;
-  std::vector<double> ego_vehicle_shape            = { 0.0, 0.0, 0.0 };
+  double ego_vehicle_start_position_x = 0;
+  double ego_vehicle_start_position_y = 0;
+  double ego_vehicle_start_psi        = 0;
 
   bool   manual_control_override = false;
   bool   controllable            = false;
