@@ -22,7 +22,6 @@ endif()
 find_package(ament_cmake REQUIRED)
 find_package(rclcpp REQUIRED)
 find_package(rclcpp_components REQUIRED)
-find_package(adore_ros2_msgs REQUIRED)
 find_package(adore_map REQUIRED)
 find_package(adore_math REQUIRED)
 find_package(adore_dynamics REQUIRED)
@@ -47,8 +46,6 @@ target_include_directories(${PROJECT_NAME}
 ament_target_dependencies(${PROJECT_NAME}
   rclcpp
   rclcpp_components
-  adore_ros2_msgs
-  adore_map
   adore_math
   adore_dynamics
   geometry_msgs
@@ -74,8 +71,6 @@ target_include_directories(${PROJECT_NAME}_component
 ament_target_dependencies(${PROJECT_NAME}_component
   rclcpp
   rclcpp_components
-  adore_ros2_msgs
-  adore_map
   adore_math
   adore_dynamics
   geometry_msgs

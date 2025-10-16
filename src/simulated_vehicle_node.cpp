@@ -20,7 +20,6 @@
 
 #include "adore_math/distance.h"
 #include "adore_ros2_msgs/msg/goal_point.hpp"
-#include <adore_map_conversions.hpp>
 #include <adore_math/point.h>
 
 namespace adore
