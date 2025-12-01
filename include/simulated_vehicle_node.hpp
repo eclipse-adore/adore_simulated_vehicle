@@ -70,7 +70,9 @@ private:
 
 
   /******************************* PUBLISHERS ************************************************************/
-  rclcpp::Publisher<StateAdapter>::SharedPtr          publisher_vehicle_state_dynamic;
+  rclcpp::Publisher<StateAdapter>::SharedPtr publisher_vehicle_state_dynamic;
+  rclcpp::Publisher<StateAdapter>::SharedPtr publisher_vehicle_state_dynamic_own_frame;
+
   rclcpp::Publisher<ParticipantSetAdapter>::SharedPtr publisher_traffic_participant_set;
   rclcpp::Publisher<ParticipantAdapter>::SharedPtr    publisher_traffic_participant;
 

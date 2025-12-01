@@ -27,7 +27,7 @@ SimulatedVehicleNode::SimulatedVehicleNode( const rclcpp::NodeOptions& options )
   Node( "simulated_vehicle_node", options )
 {
   current_time     = now();
-  last_update_time = now();
+  last_update_time = current_time;
 
   load_parameters();
   create_publishers();
@@ -85,7 +85,9 @@ SimulatedVehicleNode::load_parameters()
 void
 SimulatedVehicleNode::create_publishers()
 {
-  publisher_vehicle_state_dynamic   = create_publisher<StateAdapter>( "vehicle_state_dynamic", 10 );
+  publisher_vehicle_state_dynamic           = create_publisher<StateAdapter>( "vehicle_state_dynamic", 10 );
+  publisher_vehicle_state_dynamic_own_frame = create_publisher<StateAdapter>( "vehicle_state_dynamic_own_frame", 10 );
+
   publisher_traffic_participant_set = create_publisher<ParticipantSetAdapter>( "traffic_participants", 10 );
   publisher_traffic_participant     = create_publisher<ParticipantAdapter>( "simulated_traffic_participant", 10 );
 }
@@ -141,8 +143,8 @@ SimulatedVehicleNode::update_dynamic_subscriptions()
       // Create a new subscription
       auto subscription = create_subscription<ParticipantAdapter>( topic_name, 10,
                                                                    [this, vehicle_namespace]( const dynamics::TrafficParticipant& msg ) {
-        other_vehicle_traffic_participant_callback( msg, vehicle_namespace );
-      } );
+                                                                     other_vehicle_traffic_participant_callback( msg, vehicle_namespace );
+                                                                   } );
 
       other_vehicle_traffic_participant_subscribers[vehicle_namespace] = subscription;
 
@@ -230,7 +232,7 @@ SimulatedVehicleNode::publish_vehicle_states()
 {
   traffic_participant.state                = current_vehicle_state;
   traffic_participant.physical_parameters  = model.params;
-  traffic_participant.state.time           = now().seconds();
+  traffic_participant.state.time           = current_time.seconds();
   auto noisy_state                         = current_vehicle_state;
   auto generator                           = std::default_random_engine( std::chrono::system_clock::now().time_since_epoch().count() );
   noisy_state.x                           += pos_noise( generator );
@@ -239,6 +241,13 @@ SimulatedVehicleNode::publish_vehicle_states()
   noisy_state.yaw_angle                   += yaw_noise( generator );
 
   publisher_vehicle_state_dynamic->publish( noisy_state );
+
+  auto vehicle_state_own_frame     = current_vehicle_state;
+  vehicle_state_own_frame.x        = 0.0;
+  vehicle_state_own_frame.y        = 0.0;
+  vehicle_state_own_frame.frame_id = get_namespace();
+  publisher_vehicle_state_dynamic_own_frame->publish( vehicle_state_own_frame );
+
   publisher_traffic_participant->publish( traffic_participant );
 }
 
