@@ -66,16 +66,16 @@ SimulatedVehicleNode::load_parameters()
   traffic_participant.id     = declare_parameter<int>( "vehicle_id", 0 );
   traffic_participant.v2x_id = declare_parameter<int>( "v2x_id", 0 );
 
-  current_vehicle_state.x               = ego_vehicle_start_position_x;
-  current_vehicle_state.y               = ego_vehicle_start_position_y;
-  current_vehicle_state.yaw_angle       = ego_vehicle_start_psi;
-  current_vehicle_state.time            = current_time.seconds();
-  std::string current_vehicle_namespace = get_namespace();
+  current_vehicle_state.x         = ego_vehicle_start_position_x;
+  current_vehicle_state.y         = ego_vehicle_start_position_y;
+  current_vehicle_state.yaw_angle = ego_vehicle_start_psi;
+  current_vehicle_state.time      = current_time.seconds();
+  current_vehicle_namespace       = get_namespace();
   if( !current_vehicle_namespace.empty() && current_vehicle_namespace.front() == '/' )
   {
     current_vehicle_namespace = current_vehicle_namespace.substr( 1 );
   }
-  current_vehicle_state.frame_id          = current_vehicle_namespace; // Set the frame_id to the node's namespace
+  current_vehicle_state.frame_id          = "world";
   traffic_participant.state               = current_vehicle_state;
   traffic_participant.physical_parameters = model.params;
 
@@ -185,6 +185,7 @@ SimulatedVehicleNode::simulate_ego_vehicle()
                                       / time_step_s;
 
   current_vehicle_state.yaw_rate = math::normalize_angle( current_vehicle_state.yaw_angle - prev_state.yaw_angle ) / time_step_s;
+  current_vehicle_state.time     = current_time.seconds();
 
   traffic_participant.state = current_vehicle_state;
 }
@@ -245,7 +246,7 @@ SimulatedVehicleNode::publish_vehicle_states()
   auto vehicle_state_own_frame     = current_vehicle_state;
   vehicle_state_own_frame.x        = 0.0;
   vehicle_state_own_frame.y        = 0.0;
-  vehicle_state_own_frame.frame_id = get_namespace();
+  vehicle_state_own_frame.frame_id = current_vehicle_namespace;
   publisher_vehicle_state_dynamic_own_frame->publish( vehicle_state_own_frame );
 
   publisher_traffic_participant->publish( traffic_participant );

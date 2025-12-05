@@ -125,6 +125,8 @@ private:
   std::normal_distribution<double> vel_noise;
   std::normal_distribution<double> yaw_noise;
   std::normal_distribution<double> accel_noise;
+
+  std::string current_vehicle_namespace;
 };
 } // namespace simulated_vehicle
 } // namespace adore
