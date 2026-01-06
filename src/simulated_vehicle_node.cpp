@@ -234,6 +234,7 @@ SimulatedVehicleNode::publish_vehicle_states()
   traffic_participant.state                = current_vehicle_state;
   traffic_participant.physical_parameters  = model.params;
   traffic_participant.state.time           = current_time.seconds();
+  traffic_participant.classification = dynamics::TrafficParticipantClassification::CAR;
   auto noisy_state                         = current_vehicle_state;
   auto generator                           = std::default_random_engine( std::chrono::system_clock::now().time_since_epoch().count() );
   noisy_state.x                           += pos_noise( generator );
