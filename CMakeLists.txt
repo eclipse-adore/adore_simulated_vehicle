@@ -35,7 +35,8 @@ find_package(tf2_ros REQUIRED)
 
 # Executable
 add_executable(${PROJECT_NAME}
-  src/simulated_vehicle_node.cpp
+  src/simulated_vehicle.cpp
+  src/main.cpp
 )
 
 target_include_directories(${PROJECT_NAME}
@@ -61,7 +62,7 @@ install(TARGETS ${PROJECT_NAME}
 )
 
 # Component Library
-add_library(${PROJECT_NAME}_component SHARED src/simulated_vehicle_node.cpp)
+add_library(${PROJECT_NAME}_component SHARED src/simulated_vehicle.cpp)
 
 target_include_directories(${PROJECT_NAME}_component
   PRIVATE

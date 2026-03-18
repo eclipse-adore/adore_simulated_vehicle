@@ -11,7 +11,7 @@
  * SPDX-License-Identifier: EPL-2.0
  ********************************************************************************/
 
-#include "simulated_vehicle_node.hpp"
+#include "simulated_vehicle.hpp"
 
 #include <cstdint>
 
@@ -282,13 +282,6 @@ SimulatedVehicleNode::publish_traffic_participants()
 } // namespace simulated_vehicle
 } // namespace adore
 
-int
-main( int argc, char* argv[] )
-{
-  rclcpp::init( argc, argv );
-  rclcpp::spin( std::make_shared<adore::simulated_vehicle::SimulatedVehicleNode>( rclcpp::NodeOptions{} ) );
-  rclcpp::shutdown();
-}
 
 #include "rclcpp_components/register_node_macro.hpp"
 RCLCPP_COMPONENTS_REGISTER_NODE( adore::simulated_vehicle::SimulatedVehicleNode )
