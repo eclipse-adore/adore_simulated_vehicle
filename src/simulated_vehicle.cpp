@@ -23,7 +23,7 @@ namespace adore
 {
 namespace simulated_vehicle
 {
-SimulatedVehicleNode::SimulatedVehicleNode( const rclcpp::NodeOptions& options ) :
+SimulatedVehicle::SimulatedVehicle( const rclcpp::NodeOptions& options ) :
   Node( "simulated_vehicle_node", options )
 {
   current_time     = now();
@@ -39,11 +39,11 @@ SimulatedVehicleNode::SimulatedVehicleNode( const rclcpp::NodeOptions& options )
   accel_noise = std::normal_distribution( 0.0, accel_stddev );
 
   if( controllable )
-    dynamic_subscription_timer = create_wall_timer( 1s, std::bind( &SimulatedVehicleNode::update_dynamic_subscriptions, this ) );
+    dynamic_subscription_timer = create_wall_timer( 1s, std::bind( &SimulatedVehicle::update_dynamic_subscriptions, this ) );
 }
 
 void
-SimulatedVehicleNode::load_parameters()
+SimulatedVehicle::load_parameters()
 {
   const std::string vehicle_model_file = declare_parameter<std::string>( "vehicle_model_file", "" );
   model                                = dynamics::PhysicalVehicleModel( vehicle_model_file, false );
@@ -52,9 +52,14 @@ SimulatedVehicleNode::load_parameters()
   controllable = declare_parameter<bool>( "controllable", true );
 
   // Start position and shape
-  ego_vehicle_start_position_x = declare_parameter<double>( "set_start_position_x", 0.0 );
-  ego_vehicle_start_position_y = declare_parameter<double>( "set_start_position_y", 0.0 );
+  ego_vehicle_start_position_x = declare_parameter<double>( "set_start_utm_position_x", 0.0 );
+  ego_vehicle_start_position_y = declare_parameter<double>( "set_start_utm_position_y", 0.0 );
   ego_vehicle_start_psi        = declare_parameter<double>( "set_start_psi", 0.0 );
+
+  int ego_vehicle_start_utm_zone_number = declare_parameter<int>( "set_start_utm_zone_number", 32 );
+  std::string ego_vehicle_start_utm_zone_letter = declare_parameter<std::string>( "set_start_utm_zone_letter", "U" );
+
+  utm_zone = "UTM" + std::to_string(ego_vehicle_start_utm_zone_number) + ego_vehicle_start_utm_zone_letter;
 
   // Noise parameters
   pos_stddev   = declare_parameter<double>( "position_noise_stddev", 0.0 );
@@ -83,34 +88,38 @@ SimulatedVehicleNode::load_parameters()
 }
 
 void
-SimulatedVehicleNode::create_publishers()
+SimulatedVehicle::create_publishers()
 {
+  // publisher to self
   publisher_vehicle_state_dynamic           = create_publisher<StateAdapter>( "vehicle_state_dynamic", 10 );
+  publisher_traffic_participant_set = create_publisher<ParticipantSetAdapter>( "traffic_participants", 10 );
+
+  // Visualization publisher
   publisher_vehicle_state_dynamic_own_frame = create_publisher<StateAdapter>( "vehicle_state_dynamic_own_frame", 10 );
 
-  publisher_traffic_participant_set = create_publisher<ParticipantSetAdapter>( "traffic_participants", 10 );
+  // Publisher to other vehicles
   publisher_traffic_participant     = create_publisher<ParticipantAdapter>( "simulated_traffic_participant", 10 );
 }
 
 void
-SimulatedVehicleNode::create_subscribers()
+SimulatedVehicle::create_subscribers()
 {
-  main_timer = create_wall_timer( time_step_s * 1000ms, std::bind( &SimulatedVehicleNode::timer_callback, this ) );
+  main_timer = create_wall_timer( time_step_s * 1000ms, std::bind( &SimulatedVehicle::timer_callback, this ) );
 
   subscriber_vehicle_command = create_subscription<VehicleCommandAdapter>( "next_vehicle_command", 10,
-                                                                           std::bind( &SimulatedVehicleNode::vehicle_command_callback, this,
+                                                                           std::bind( &SimulatedVehicle::vehicle_command_callback, this,
                                                                                       std::placeholders::_1 ) );
 
   subscriber_teleop_controller = create_subscription<geometry_msgs::msg::Twist>(
-    "teleop_controller", 10, std::bind( &SimulatedVehicleNode::teleop_controller_callback, this, std::placeholders::_1 ) );
+    "teleop_controller", 10, std::bind( &SimulatedVehicle::teleop_controller_callback, this, std::placeholders::_1 ) );
 
   subscriber_automation_toggle = create_subscription<std_msgs::msg::Bool>( "automation_toggle", 10,
-                                                                           std::bind( &SimulatedVehicleNode::automation_toggle_callback,
+                                                                           std::bind( &SimulatedVehicle::automation_toggle_callback,
                                                                                       this, std::placeholders::_1 ) );
 }
 
 void
-SimulatedVehicleNode::update_dynamic_subscriptions()
+SimulatedVehicle::update_dynamic_subscriptions()
 {
   auto       topic_names_and_types = get_topic_names_and_types();
   std::regex valid_topic_regex( R"(^/([^/]+)/simulated_traffic_participant$)" );
@@ -154,7 +163,7 @@ SimulatedVehicleNode::update_dynamic_subscriptions()
 }
 
 void
-SimulatedVehicleNode::timer_callback()
+SimulatedVehicle::timer_callback()
 {
   current_time = now();
   if( controllable )
@@ -169,7 +178,7 @@ SimulatedVehicleNode::timer_callback()
 }
 
 void
-SimulatedVehicleNode::simulate_ego_vehicle()
+SimulatedVehicle::simulate_ego_vehicle()
 {
   auto   prev_state = current_vehicle_state;
   double prev_v     = current_vehicle_state.vx;
@@ -191,14 +200,14 @@ SimulatedVehicleNode::simulate_ego_vehicle()
 }
 
 void
-SimulatedVehicleNode::publish_ego_transform()
+SimulatedVehicle::publish_ego_transform()
 {
   auto vehicle_frame = dynamics::conversions::vehicle_state_to_transform( current_vehicle_state, last_update_time, get_namespace() );
   tf_transform_broadcaster->sendTransform( vehicle_frame );
 }
 
 void
-SimulatedVehicleNode::teleop_controller_callback( const geometry_msgs::msg::Twist& msg )
+SimulatedVehicle::teleop_controller_callback( const geometry_msgs::msg::Twist& msg )
 {
   if( !manual_control_override )
     return;
@@ -216,20 +225,20 @@ SimulatedVehicleNode::teleop_controller_callback( const geometry_msgs::msg::Twis
 }
 
 void
-SimulatedVehicleNode::automation_toggle_callback( const std_msgs::msg::Bool& msg )
+SimulatedVehicle::automation_toggle_callback( const std_msgs::msg::Bool& msg )
 {
   manual_control_override = msg.data;
 }
 
 void
-SimulatedVehicleNode::vehicle_command_callback( const dynamics::VehicleCommand& msg )
+SimulatedVehicle::vehicle_command_callback( const dynamics::VehicleCommand& msg )
 {
   if( !manual_control_override )
     latest_vehicle_command = msg;
 }
 
 void
-SimulatedVehicleNode::publish_vehicle_states()
+SimulatedVehicle::publish_vehicle_states()
 {
   traffic_participant.state                = current_vehicle_state;
   traffic_participant.physical_parameters  = model.params;
@@ -241,6 +250,7 @@ SimulatedVehicleNode::publish_vehicle_states()
   noisy_state.y                           += pos_noise( generator );
   noisy_state.vx                          += vel_noise( generator );
   noisy_state.yaw_angle                   += yaw_noise( generator );
+  noisy_state.frame_id = utm_zone;
 
   publisher_vehicle_state_dynamic->publish( noisy_state );
 
@@ -254,14 +264,14 @@ SimulatedVehicleNode::publish_vehicle_states()
 }
 
 void
-SimulatedVehicleNode::other_vehicle_traffic_participant_callback( const dynamics::TrafficParticipant& msg,
+SimulatedVehicle::other_vehicle_traffic_participant_callback( const dynamics::TrafficParticipant& msg,
                                                                   const std::string&                  vehicle_namespace )
 {
   other_vehicles[vehicle_namespace] = msg;
 }
 
 void
-SimulatedVehicleNode::publish_traffic_participants()
+SimulatedVehicle::publish_traffic_participants()
 {
 
   dynamics::TrafficParticipantSet traffic_participants;
@@ -284,4 +294,4 @@ SimulatedVehicleNode::publish_traffic_participants()
 
 
 #include "rclcpp_components/register_node_macro.hpp"
-RCLCPP_COMPONENTS_REGISTER_NODE( adore::simulated_vehicle::SimulatedVehicleNode )
+RCLCPP_COMPONENTS_REGISTER_NODE( adore::simulated_vehicle::SimulatedVehicle )

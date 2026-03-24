@@ -17,6 +17,6 @@
 int main( int argc, char* argv[] )
 {
   rclcpp::init( argc, argv );
-  rclcpp::spin( std::make_shared<adore::simulated_vehicle::SimulatedVehicleNode>( rclcpp::NodeOptions{} ) );
+  rclcpp::spin( std::make_shared<adore::simulated_vehicle::SimulatedVehicle>( rclcpp::NodeOptions{} ) );
   rclcpp::shutdown();
 }
