@@ -27,6 +27,7 @@
 #include "adore_ros2_msgs/msg/state_monitor.hpp"
 #include "adore_ros2_msgs/msg/traffic_participant_set.hpp"
 #include "adore_ros2_msgs/msg/vehicle_command.hpp"
+#include "adore_ros2_msgs/msg/vehicle_info.hpp"
 
 #include "dynamics/integration.hpp"
 #include "dynamics/physical_vehicle_model.hpp"
@@ -38,6 +39,7 @@
 #include "std_msgs/msg/bool.hpp"
 #include "std_msgs/msg/float64.hpp"
 #include "tf2_ros/transform_broadcaster.h"
+#include <adore_map/lat_long_conversions.hpp>
 
 using namespace std::chrono_literals;
 
@@ -45,11 +47,11 @@ namespace adore
 {
 namespace simulated_vehicle
 {
-class SimulatedVehicleNode : public rclcpp::Node
+class SimulatedVehicle : public rclcpp::Node
 {
 public:
 
-  explicit SimulatedVehicleNode( const rclcpp::NodeOptions& options );
+  explicit SimulatedVehicle( const rclcpp::NodeOptions& options );
 
 private:
 
@@ -60,6 +62,7 @@ private:
 
   void simulate_ego_vehicle();
   void publish_vehicle_states();
+  void publish_vehicle_info();
   void add_noise();
   void publish_traffic_participants();
   void update_dynamic_subscriptions();
@@ -70,11 +73,16 @@ private:
 
 
   /******************************* PUBLISHERS ************************************************************/
+
+  // Publishers to its own vehicle
+  rclcpp::Publisher<adore_ros2_msgs::msg::VehicleInfo>::SharedPtr publisher_vehicle_info;
   rclcpp::Publisher<StateAdapter>::SharedPtr publisher_vehicle_state_dynamic;
+  rclcpp::Publisher<ParticipantSetAdapter>::SharedPtr publisher_traffic_participant_set;
+
   rclcpp::Publisher<StateAdapter>::SharedPtr publisher_vehicle_state_dynamic_own_frame;
 
-  rclcpp::Publisher<ParticipantSetAdapter>::SharedPtr publisher_traffic_participant_set;
-  rclcpp::Publisher<ParticipantAdapter>::SharedPtr    publisher_traffic_participant;
+  // Publisher to other vehicle
+  rclcpp::Publisher<ParticipantAdapter>::SharedPtr publisher_traffic_participant;
 
   /******************************* SUBSCRIBERS ************************************************************/
   rclcpp::Subscription<VehicleCommandAdapter>::SharedPtr     subscriber_vehicle_command;
@@ -127,6 +135,9 @@ private:
   std::normal_distribution<double> accel_noise;
 
   std::string current_vehicle_namespace;
+
+  int utm_zone;
+  std::string utm_letter;
 };
 } // namespace simulated_vehicle
 } // namespace adore
