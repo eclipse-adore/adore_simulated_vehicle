@@ -39,6 +39,7 @@
 #include "std_msgs/msg/bool.hpp"
 #include "std_msgs/msg/float64.hpp"
 #include "tf2_ros/transform_broadcaster.h"
+#include <adore_map/lat_long_conversions.hpp>
 
 using namespace std::chrono_literals;
 
@@ -74,6 +75,7 @@ private:
   /******************************* PUBLISHERS ************************************************************/
 
   // Publishers to its own vehicle
+  rclcpp::Publisher<adore_ros2_msgs::msg::VehicleInfo>::SharedPtr publisher_vehicle_info;
   rclcpp::Publisher<StateAdapter>::SharedPtr publisher_vehicle_state_dynamic;
   rclcpp::Publisher<ParticipantSetAdapter>::SharedPtr publisher_traffic_participant_set;
 
@@ -134,7 +136,8 @@ private:
 
   std::string current_vehicle_namespace;
 
-  std::string utm_zone;
+  int utm_zone;
+  std::string utm_letter;
 };
 } // namespace simulated_vehicle
 } // namespace adore

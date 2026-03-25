@@ -59,7 +59,8 @@ SimulatedVehicle::load_parameters()
   int ego_vehicle_start_utm_zone_number = declare_parameter<int>( "set_start_utm_zone_number", 32 );
   std::string ego_vehicle_start_utm_zone_letter = declare_parameter<std::string>( "set_start_utm_zone_letter", "U" );
 
-  utm_zone = "UTM" + std::to_string(ego_vehicle_start_utm_zone_number) + ego_vehicle_start_utm_zone_letter;
+  utm_zone = ego_vehicle_start_utm_zone_number;
+  utm_letter = ego_vehicle_start_utm_zone_letter;
 
   // Noise parameters
   pos_stddev   = declare_parameter<double>( "position_noise_stddev", 0.0 );
@@ -91,7 +92,8 @@ void
 SimulatedVehicle::create_publishers()
 {
   // publisher to self
-  publisher_vehicle_state_dynamic           = create_publisher<StateAdapter>( "vehicle_state_dynamic", 10 );
+  publisher_vehicle_info = create_publisher<adore_ros2_msgs::msg::VehicleInfo>( "vehicle_info", 10 );
+  publisher_vehicle_state_dynamic = create_publisher<StateAdapter>( "vehicle_state_dynamic", 10 );
   publisher_traffic_participant_set = create_publisher<ParticipantSetAdapter>( "traffic_participants", 10 );
 
   // Visualization publisher
@@ -250,9 +252,19 @@ SimulatedVehicle::publish_vehicle_states()
   noisy_state.y                           += pos_noise( generator );
   noisy_state.vx                          += vel_noise( generator );
   noisy_state.yaw_angle                   += yaw_noise( generator );
-  noisy_state.frame_id = utm_zone;
+  noisy_state.frame_id = "UTM" + std::to_string(utm_zone) + utm_letter;
+;
 
   publisher_vehicle_state_dynamic->publish( noisy_state );
+
+  adore_ros2_msgs::msg::VehicleInfo vehicle_info;
+  auto position_lat_lon = map::convert_utm_to_lat_lon( current_vehicle_state.x, current_vehicle_state.y, utm_zone, utm_letter);
+
+  vehicle_info.position_latitude = position_lat_lon[0];
+  vehicle_info.position_longitude = position_lat_lon[1];
+  vehicle_info.speed = (int)trunc(current_vehicle_state.vx * 3.6); // Convert m/s to km/h (truncated to nearest integer)
+
+  publisher_vehicle_info->publish(vehicle_info);
 
   auto vehicle_state_own_frame     = current_vehicle_state;
   vehicle_state_own_frame.x        = 0.0;
