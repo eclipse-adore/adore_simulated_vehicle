@@ -2,3 +2,5 @@ ros-${ROS_DISTRO}-geometry-msgs
 ros-${ROS_DISTRO}-std-msgs
 ros-${ROS_DISTRO}-tf2
 ros-${ROS_DISTRO}-tf2-ros
+ros-${ROS_DISTRO}-nav-msgs
+ros-${ROS_DISTRO}-rclcpp-components
