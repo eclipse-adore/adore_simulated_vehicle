@@ -101,6 +101,8 @@ SimulatedVehicle::create_publishers()
 
   // Publisher to other vehicles
   publisher_traffic_participant     = create_publisher<ParticipantAdapter>( "simulated_traffic_participant", 10 );
+
+  publisher_weather = create_publisher<adore_ros2_msgs::msg::Weather>( "weather", 10 );
 }
 
 void
@@ -177,6 +179,7 @@ SimulatedVehicle::timer_callback()
   last_update_time = current_time;
   publish_vehicle_states();
   publish_ego_transform();
+  publish_weather();
 }
 
 void
@@ -300,6 +303,18 @@ SimulatedVehicle::publish_traffic_participants()
 
   publisher_traffic_participant_set->publish( traffic_participants );
 }
+
+void
+SimulatedVehicle::publish_weather()
+{
+  adore_ros2_msgs::msg::Weather weather_msg;
+
+  // weather_msg.wind_intensity = 3; // m/s wind
+  // weather_msg.wetness = 25.0; // mm water
+
+  publisher_weather->publish(weather_msg);
+}
+
 
 } // namespace simulated_vehicle
 } // namespace adore

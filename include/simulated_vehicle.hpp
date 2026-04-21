@@ -28,6 +28,7 @@
 #include "adore_ros2_msgs/msg/traffic_participant_set.hpp"
 #include "adore_ros2_msgs/msg/vehicle_command.hpp"
 #include "adore_ros2_msgs/msg/vehicle_info.hpp"
+#include "adore_ros2_msgs/msg/weather.hpp"
 
 #include "dynamics/integration.hpp"
 #include "dynamics/physical_vehicle_model.hpp"
@@ -63,6 +64,7 @@ private:
   void simulate_ego_vehicle();
   void publish_vehicle_states();
   void publish_vehicle_info();
+  void publish_weather();
   void add_noise();
   void publish_traffic_participants();
   void update_dynamic_subscriptions();
@@ -78,6 +80,7 @@ private:
   rclcpp::Publisher<adore_ros2_msgs::msg::VehicleInfo>::SharedPtr publisher_vehicle_info;
   rclcpp::Publisher<StateAdapter>::SharedPtr publisher_vehicle_state_dynamic;
   rclcpp::Publisher<ParticipantSetAdapter>::SharedPtr publisher_traffic_participant_set;
+  rclcpp::Publisher<adore_ros2_msgs::msg::Weather>::SharedPtr publisher_weather;
 
   rclcpp::Publisher<StateAdapter>::SharedPtr publisher_vehicle_state_dynamic_own_frame;
 
